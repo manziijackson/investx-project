@@ -44,6 +44,18 @@ const AdminUsers = () => {
     localStorage.setItem('investx_users', JSON.stringify(newUsers));
   };
 
+  const updateUserSession = (userId: string, updatedUserData: Partial<User>) => {
+    // Update current user session if it's the same user
+    const currentUser = localStorage.getItem('investx_user');
+    if (currentUser) {
+      const parsedCurrentUser = JSON.parse(currentUser);
+      if (parsedCurrentUser.id === userId) {
+        const updatedCurrentUser = { ...parsedCurrentUser, ...updatedUserData };
+        localStorage.setItem('investx_user', JSON.stringify(updatedCurrentUser));
+      }
+    }
+  };
+
   const toggleUserStatus = (userId: string) => {
     const updatedUsers = users.map(user => {
       if (user.id === userId) {
@@ -54,25 +66,73 @@ const AdminUsers = () => {
 
     saveUsers(updatedUsers);
 
-    // Update current user session if it's the same user
-    const currentUser = localStorage.getItem('investx_user');
-    if (currentUser) {
-      const parsedCurrentUser = JSON.parse(currentUser);
-      if (parsedCurrentUser.id === userId) {
-        const updatedCurrentUser = updatedUsers.find(u => u.id === userId);
-        if (updatedCurrentUser) {
-          const userSession = { ...updatedCurrentUser };
-          delete (userSession as any).password;
-          localStorage.setItem('investx_user', JSON.stringify(userSession));
-        }
-      }
-    }
-
     const user = users.find(u => u.id === userId);
+    updateUserSession(userId, { isActive: !user?.isActive });
+
     toast({
       title: `User ${user?.isActive ? 'Deactivated' : 'Activated'}`,
       description: `${user?.name} has been ${user?.isActive ? 'deactivated' : 'activated'}.`,
     });
+  };
+
+  const handleAddMoney = (user: User, amount: string) => {
+    if (!amount || Number(amount) <= 0) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid amount greater than 0.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const amountNumber = Number(amount);
+
+    // Update user balance
+    const updatedUsers = users.map(u => {
+      if (u.id === user.id) {
+        return {
+          ...u,
+          balance: u.balance + amountNumber,
+          isActive: true
+        };
+      }
+      return u;
+    });
+    
+    saveUsers(updatedUsers);
+
+    // Update user session immediately
+    updateUserSession(user.id, { 
+      balance: user.balance + amountNumber,
+      isActive: true 
+    });
+
+    // Create payment record
+    const payments = JSON.parse(localStorage.getItem('investx_payments') || '[]');
+    const newPayment = {
+      id: Date.now().toString(),
+      userId: user.id,
+      userName: user.name,
+      userEmail: user.email,
+      amount: amountNumber,
+      status: 'approved',
+      paymentMethod: 'Manual Credit',
+      transactionId: `ADM-${Date.now()}`,
+      requestDate: new Date().toISOString(),
+      processedDate: new Date().toISOString(),
+      notes: 'Manual credit by admin'
+    };
+
+    payments.push(newPayment);
+    localStorage.setItem('investx_payments', JSON.stringify(payments));
+
+    toast({
+      title: "Money Added Successfully",
+      description: `${amountNumber.toLocaleString()} RWF has been added to ${user.name}'s account.`,
+    });
+
+    // Force a page refresh to ensure the UI updates
+    window.location.reload();
   };
 
   const handleCreditUser = (e: React.FormEvent) => {
@@ -87,68 +147,8 @@ const AdminUsers = () => {
       return;
     }
 
-    const amount = Number(creditAmount);
-    if (amount <= 0) {
-      toast({
-        title: "Error",
-        description: "Amount must be greater than 0.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Update user balance
-    const updatedUsers = users.map(user => {
-      if (user.id === selectedUser.id) {
-        return {
-          ...user,
-          balance: user.balance + amount,
-          isActive: true
-        };
-      }
-      return user;
-    });
+    handleAddMoney(selectedUser, creditAmount);
     
-    saveUsers(updatedUsers);
-
-    // Update current user session if it's the same user
-    const currentUser = localStorage.getItem('investx_user');
-    if (currentUser) {
-      const parsedCurrentUser = JSON.parse(currentUser);
-      if (parsedCurrentUser.id === selectedUser.id) {
-        const updatedCurrentUser = {
-          ...parsedCurrentUser,
-          balance: parsedCurrentUser.balance + amount,
-          isActive: true
-        };
-        localStorage.setItem('investx_user', JSON.stringify(updatedCurrentUser));
-      }
-    }
-
-    // Create payment record
-    const payments = JSON.parse(localStorage.getItem('investx_payments') || '[]');
-    const newPayment = {
-      id: Date.now().toString(),
-      userId: selectedUser.id,
-      userName: selectedUser.name,
-      userEmail: selectedUser.email,
-      amount: amount,
-      status: 'approved',
-      paymentMethod: 'Manual Credit',
-      transactionId: `ADM-${Date.now()}`,
-      requestDate: new Date().toISOString(),
-      processedDate: new Date().toISOString(),
-      notes: creditNotes || 'Manual credit by admin'
-    };
-
-    payments.push(newPayment);
-    localStorage.setItem('investx_payments', JSON.stringify(payments));
-
-    toast({
-      title: "User Credited Successfully",
-      description: `${amount.toLocaleString()} RWF has been credited to ${selectedUser.name}'s account.`,
-    });
-
     setIsDialogOpen(false);
     setSelectedUser(null);
     setCreditAmount('');
@@ -166,68 +166,6 @@ const AdminUsers = () => {
             <h2 className="text-3xl font-bold text-gray-900">User Management</h2>
             <p className="text-gray-600">Manage user accounts and balances</p>
           </div>
-          
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-green-600 hover:bg-green-700">
-                <Plus className="h-4 w-4 mr-2" />
-                Credit User
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle>Credit User Account</DialogTitle>
-                <DialogDescription>
-                  Add funds to a user's account
-                </DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleCreditUser} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="userSelect">Select User</Label>
-                  <select
-                    id="userSelect"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                    value={selectedUser?.id || ''}
-                    onChange={(e) => {
-                      const user = users.find(u => u.id === e.target.value);
-                      setSelectedUser(user || null);
-                    }}
-                    required
-                  >
-                    <option value="">Select a user...</option>
-                    {users.map(user => (
-                      <option key={user.id} value={user.id}>
-                        {user.name} ({user.email}) - {user.balance.toLocaleString()} RWF
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="creditAmount">Amount (RWF)</Label>
-                  <Input
-                    id="creditAmount"
-                    type="number"
-                    value={creditAmount}
-                    onChange={(e) => setCreditAmount(e.target.value)}
-                    placeholder="Enter amount to credit"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="creditNotes">Notes (Optional)</Label>
-                  <Input
-                    id="creditNotes"
-                    value={creditNotes}
-                    onChange={(e) => setCreditNotes(e.target.value)}
-                    placeholder="Reason for credit..."
-                  />
-                </div>
-                <Button type="submit" className="w-full bg-green-600 hover:bg-green-700">
-                  Credit Account
-                </Button>
-              </form>
-            </DialogContent>
-          </Dialog>
         </div>
 
         {/* Summary Cards */}
@@ -290,7 +228,7 @@ const AdminUsers = () => {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
                     <div>
                       <p className="text-sm text-gray-600">Balance</p>
                       <p className="font-semibold text-green-600">{user.balance.toLocaleString()} RWF</p>
@@ -312,6 +250,42 @@ const AdminUsers = () => {
                       <p className="font-semibold">{new Date(user.createdAt).toLocaleDateString()}</p>
                     </div>
                   </div>
+                  
+                  {/* Add Money Section */}
+                  <div className="border-t pt-4">
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1">
+                        <Label htmlFor={`amount-${user.id}`} className="text-sm font-medium">Add Money (RWF)</Label>
+                        <Input
+                          id={`amount-${user.id}`}
+                          type="number"
+                          placeholder="Enter amount"
+                          className="mt-1"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              const input = e.target as HTMLInputElement;
+                              handleAddMoney(user, input.value);
+                              input.value = '';
+                            }
+                          }}
+                        />
+                      </div>
+                      <Button
+                        onClick={(e) => {
+                          const input = e.currentTarget.parentElement?.querySelector('input') as HTMLInputElement;
+                          if (input) {
+                            handleAddMoney(user, input.value);
+                            input.value = '';
+                          }
+                        }}
+                        className="bg-green-600 hover:bg-green-700 mt-6"
+                      >
+                        <Wallet className="h-4 w-4 mr-2" />
+                        Add Money
+                      </Button>
+                    </div>
+                  </div>
+
                   <div className="mt-4">
                     <p className="text-sm text-gray-600">Referral Code: <span className="font-mono font-semibold">{user.referralCode}</span></p>
                     {user.referredBy && (
