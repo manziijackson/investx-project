@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,16 +17,16 @@ const Register = () => {
     referredBy: '',
   });
   const [isLoading, setIsLoading] = useState(false);
-  const { register, user } = useAuth();
+  const { register, user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
   // Redirect if already logged in
   useEffect(() => {
-    if (user) {
+    if (!authLoading && user) {
       navigate('/dashboard', { replace: true });
     }
-  }, [user, navigate]);
+  }, [user, navigate, authLoading]);
 
   // Get referral code from URL
   useEffect(() => {
@@ -36,6 +35,20 @@ const Register = () => {
       setFormData(prev => ({ ...prev, referredBy: refCode }));
     }
   }, [searchParams]);
+
+  // Show loading while checking auth status
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  // Don't render registration form if user is already authenticated
+  if (user) {
+    return null;
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({
@@ -104,10 +117,10 @@ const Register = () => {
         {/* Registration Form */}
         <Card className="max-w-md mx-auto">
           <CardHeader className="text-center">
-            <div className="flex items-center justify-center mb-4">
+            <Link to="/" className="flex items-center justify-center mb-4 hover:opacity-80 transition-opacity">
               <TrendingUp className="h-8 w-8 text-blue-600 mr-2" />
               <h1 className="text-2xl font-bold">InvestX</h1>
-            </div>
+            </Link>
             <CardTitle>Create Your Account</CardTitle>
             <CardDescription>Start your investment journey today</CardDescription>
           </CardHeader>

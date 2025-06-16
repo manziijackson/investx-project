@@ -1,248 +1,335 @@
 
 import React, { useState, useEffect } from 'react';
 import AdminLayout from '@/components/AdminLayout';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Users, UserCheck, UserX, Plus, Wallet } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { Search, UserCheck, UserX, Plus, Wallet } from 'lucide-react';
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  balance: number;
+  totalInvested: number;
+  totalEarned: number;
+  referralCode: string;
+  referredBy?: string;
+  referralCount: number;
+  isActive: boolean;
+  createdAt: string;
+}
 
 const AdminUsers = () => {
-  const [users, setUsers] = useState([]);
-  const [filteredUsers, setFilteredUsers] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [isAddBalanceOpen, setIsAddBalanceOpen] = useState(false);
-  const [balanceAmount, setBalanceAmount] = useState('');
+  const [users, setUsers] = useState<User[]>([]);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [creditAmount, setCreditAmount] = useState('');
+  const [creditNotes, setCreditNotes] = useState('');
 
   useEffect(() => {
-    loadUsers();
+    const savedUsers = localStorage.getItem('investx_users');
+    if (savedUsers) {
+      setUsers(JSON.parse(savedUsers));
+    }
   }, []);
 
-  useEffect(() => {
-    if (searchTerm) {
-      const filtered = users.filter((user: any) => 
-        user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.phone.includes(searchTerm)
-      );
-      setFilteredUsers(filtered);
-    } else {
-      setFilteredUsers(users);
-    }
-  }, [searchTerm, users]);
-
-  const loadUsers = () => {
-    const allUsers = JSON.parse(localStorage.getItem('investx_users') || '[]');
-    setUsers(allUsers);
-    setFilteredUsers(allUsers);
+  const saveUsers = (newUsers: User[]) => {
+    setUsers(newUsers);
+    localStorage.setItem('investx_users', JSON.stringify(newUsers));
   };
 
-  const toggleUserStatus = (userId: string, currentStatus: boolean) => {
-    const updatedUsers = users.map((user: any) => 
-      user.id === userId ? { ...user, isActive: !currentStatus } : user
-    );
-    
-    localStorage.setItem('investx_users', JSON.stringify(updatedUsers));
-    setUsers(updatedUsers);
-    
+  const toggleUserStatus = (userId: string) => {
+    const updatedUsers = users.map(user => {
+      if (user.id === userId) {
+        return { ...user, isActive: !user.isActive };
+      }
+      return user;
+    });
+
+    saveUsers(updatedUsers);
+
+    // Update current user session if it's the same user
+    const currentUser = localStorage.getItem('investx_user');
+    if (currentUser) {
+      const parsedCurrentUser = JSON.parse(currentUser);
+      if (parsedCurrentUser.id === userId) {
+        const updatedCurrentUser = updatedUsers.find(u => u.id === userId);
+        if (updatedCurrentUser) {
+          const userSession = { ...updatedCurrentUser };
+          delete (userSession as any).password;
+          localStorage.setItem('investx_user', JSON.stringify(userSession));
+        }
+      }
+    }
+
+    const user = users.find(u => u.id === userId);
     toast({
-      title: "User Status Updated",
-      description: `User ${currentStatus ? 'deactivated' : 'activated'} successfully`,
+      title: `User ${user?.isActive ? 'Deactivated' : 'Activated'}`,
+      description: `${user?.name} has been ${user?.isActive ? 'deactivated' : 'activated'}.`,
     });
   };
 
-  const addBalance = () => {
-    if (!selectedUser || !balanceAmount) return;
-
-    const amount = parseFloat(balanceAmount);
-    if (isNaN(amount) || amount <= 0) {
+  const handleCreditUser = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!selectedUser || !creditAmount) {
       toast({
-        title: "Invalid Amount",
-        description: "Please enter a valid positive amount",
+        title: "Error",
+        description: "Please select a user and enter an amount.",
         variant: "destructive",
       });
       return;
     }
 
-    const updatedUsers = users.map((user: any) => 
-      user.id === (selectedUser as any).id 
-        ? { ...user, balance: (user.balance || 0) + amount }
-        : user
-    );
-    
-    localStorage.setItem('investx_users', JSON.stringify(updatedUsers));
-    setUsers(updatedUsers);
-    setIsAddBalanceOpen(false);
-    setBalanceAmount('');
-    setSelectedUser(null);
-    
-    toast({
-      title: "Balance Added",
-      description: `${amount.toLocaleString()} RWF added to user's balance`,
+    const amount = Number(creditAmount);
+    if (amount <= 0) {
+      toast({
+        title: "Error",
+        description: "Amount must be greater than 0.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Update user balance
+    const updatedUsers = users.map(user => {
+      if (user.id === selectedUser.id) {
+        return {
+          ...user,
+          balance: user.balance + amount,
+          isActive: true
+        };
+      }
+      return user;
     });
+    
+    saveUsers(updatedUsers);
+
+    // Update current user session if it's the same user
+    const currentUser = localStorage.getItem('investx_user');
+    if (currentUser) {
+      const parsedCurrentUser = JSON.parse(currentUser);
+      if (parsedCurrentUser.id === selectedUser.id) {
+        const updatedCurrentUser = {
+          ...parsedCurrentUser,
+          balance: parsedCurrentUser.balance + amount,
+          isActive: true
+        };
+        localStorage.setItem('investx_user', JSON.stringify(updatedCurrentUser));
+      }
+    }
+
+    // Create payment record
+    const payments = JSON.parse(localStorage.getItem('investx_payments') || '[]');
+    const newPayment = {
+      id: Date.now().toString(),
+      userId: selectedUser.id,
+      userName: selectedUser.name,
+      userEmail: selectedUser.email,
+      amount: amount,
+      status: 'approved',
+      paymentMethod: 'Manual Credit',
+      transactionId: `ADM-${Date.now()}`,
+      requestDate: new Date().toISOString(),
+      processedDate: new Date().toISOString(),
+      notes: creditNotes || 'Manual credit by admin'
+    };
+
+    payments.push(newPayment);
+    localStorage.setItem('investx_payments', JSON.stringify(payments));
+
+    toast({
+      title: "User Credited Successfully",
+      description: `${amount.toLocaleString()} RWF has been credited to ${selectedUser.name}'s account.`,
+    });
+
+    setIsDialogOpen(false);
+    setSelectedUser(null);
+    setCreditAmount('');
+    setCreditNotes('');
   };
+
+  const activeUsers = users.filter(u => u.isActive);
+  const inactiveUsers = users.filter(u => !u.isActive);
 
   return (
     <AdminLayout>
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
-            <p className="text-gray-600">Manage all user accounts and balances</p>
+            <h2 className="text-3xl font-bold text-gray-900">User Management</h2>
+            <p className="text-gray-600">Manage user accounts and balances</p>
           </div>
-          <div className="flex items-center space-x-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Search users..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 w-64"
-              />
-            </div>
-          </div>
+          
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-green-600 hover:bg-green-700">
+                <Plus className="h-4 w-4 mr-2" />
+                Credit User
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Credit User Account</DialogTitle>
+                <DialogDescription>
+                  Add funds to a user's account
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleCreditUser} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="userSelect">Select User</Label>
+                  <select
+                    id="userSelect"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    value={selectedUser?.id || ''}
+                    onChange={(e) => {
+                      const user = users.find(u => u.id === e.target.value);
+                      setSelectedUser(user || null);
+                    }}
+                    required
+                  >
+                    <option value="">Select a user...</option>
+                    {users.map(user => (
+                      <option key={user.id} value={user.id}>
+                        {user.name} ({user.email}) - {user.balance.toLocaleString()} RWF
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="creditAmount">Amount (RWF)</Label>
+                  <Input
+                    id="creditAmount"
+                    type="number"
+                    value={creditAmount}
+                    onChange={(e) => setCreditAmount(e.target.value)}
+                    placeholder="Enter amount to credit"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="creditNotes">Notes (Optional)</Label>
+                  <Input
+                    id="creditNotes"
+                    value={creditNotes}
+                    onChange={(e) => setCreditNotes(e.target.value)}
+                    placeholder="Reason for credit..."
+                  />
+                </div>
+                <Button type="submit" className="w-full bg-green-600 hover:bg-green-700">
+                  Credit Account
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
         </div>
 
-        {/* User Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Summary Cards */}
+        <div className="grid gap-4 md:grid-cols-3">
           <Card>
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-blue-600">{users.length}</div>
-              <p className="text-sm text-gray-600">Total Users</p>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+              <Users className="h-4 w-4 text-blue-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{users.length}</div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-green-600">
-                {users.filter((user: any) => user.isActive).length}
-              </div>
-              <p className="text-sm text-gray-600">Active Users</p>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Active Users</CardTitle>
+              <UserCheck className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{activeUsers.length}</div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-orange-600">
-                {users.filter((user: any) => !user.isActive).length}
-              </div>
-              <p className="text-sm text-gray-600">Pending Users</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-purple-600">
-                {users.reduce((sum: number, user: any) => sum + (user.totalInvested || 0), 0).toLocaleString()}
-              </div>
-              <p className="text-sm text-gray-600">Total Invested (RWF)</p>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Inactive Users</CardTitle>
+              <UserX className="h-4 w-4 text-red-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{inactiveUsers.length}</div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Users Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle>All Users</CardTitle>
-            <CardDescription>Manage user accounts and monitor their activity</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Phone</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Balance</TableHead>
-                  <TableHead>Invested</TableHead>
-                  <TableHead>Referrals</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredUsers.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center text-gray-500">
-                      No users found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredUsers.map((user: any) => (
-                    <TableRow key={user.id}>
-                      <TableCell className="font-medium">{user.name}</TableCell>
-                      <TableCell>{user.email}</TableCell>
-                      <TableCell>{user.phone}</TableCell>
-                      <TableCell>
-                        <Badge variant={user.isActive ? 'default' : 'secondary'}>
-                          {user.isActive ? 'Active' : 'Pending'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{(user.balance || 0).toLocaleString()} RWF</TableCell>
-                      <TableCell>{(user.totalInvested || 0).toLocaleString()} RWF</TableCell>
-                      <TableCell>{user.referralCount || 0}</TableCell>
-                      <TableCell>
-                        <div className="flex space-x-2">
-                          <Button
-                            size="sm"
-                            variant={user.isActive ? "destructive" : "default"}
-                            onClick={() => toggleUserStatus(user.id, user.isActive)}
-                          >
-                            {user.isActive ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedUser(user);
-                              setIsAddBalanceOpen(true);
-                            }}
-                          >
-                            <Wallet className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-
-        {/* Add Balance Dialog */}
-        <Dialog open={isAddBalanceOpen} onOpenChange={setIsAddBalanceOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add Balance</DialogTitle>
-              <DialogDescription>
-                Add balance to {selectedUser?.name}'s account
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="amount">Amount (RWF)</Label>
-                <Input
-                  id="amount"
-                  type="number"
-                  placeholder="Enter amount"
-                  value={balanceAmount}
-                  onChange={(e) => setBalanceAmount(e.target.value)}
-                />
-              </div>
-              <div className="flex justify-end space-x-2">
-                <Button variant="outline" onClick={() => setIsAddBalanceOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={addBalance}>
-                  Add Balance
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        {/* Users List */}
+        <div className="space-y-6">
+          {users.length > 0 ? (
+            users.map((user) => (
+              <Card key={user.id}>
+                <CardHeader>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <CardTitle className="flex items-center">
+                        <Users className="h-5 w-5 mr-2 text-blue-600" />
+                        {user.name}
+                      </CardTitle>
+                      <CardDescription>{user.email} | {user.phone}</CardDescription>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Badge variant={user.isActive ? "default" : "secondary"}>
+                        {user.isActive ? 'Active' : 'Inactive'}
+                      </Badge>
+                      <Button
+                        onClick={() => toggleUserStatus(user.id)}
+                        variant={user.isActive ? "destructive" : "default"}
+                        size="sm"
+                      >
+                        {user.isActive ? 'Deactivate' : 'Activate'}
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-600">Balance</p>
+                      <p className="font-semibold text-green-600">{user.balance.toLocaleString()} RWF</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Total Invested</p>
+                      <p className="font-semibold">{user.totalInvested.toLocaleString()} RWF</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Total Earned</p>
+                      <p className="font-semibold">{user.totalEarned.toLocaleString()} RWF</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Referrals</p>
+                      <p className="font-semibold">{user.referralCount}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Joined</p>
+                      <p className="font-semibold">{new Date(user.createdAt).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <p className="text-sm text-gray-600">Referral Code: <span className="font-mono font-semibold">{user.referralCode}</span></p>
+                    {user.referredBy && (
+                      <p className="text-sm text-gray-600">Referred by: <span className="font-semibold">{user.referredBy}</span></p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            <Card>
+              <CardContent className="text-center py-8">
+                <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500">No users found</p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </div>
     </AdminLayout>
   );

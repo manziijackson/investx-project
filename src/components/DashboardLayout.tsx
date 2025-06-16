@@ -4,7 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { TrendingUp, Home, PieChart, Users, Wallet, LogOut } from 'lucide-react';
+import { TrendingUp, Home, DollarSign, Users, Wallet, LogOut } from 'lucide-react';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -22,7 +22,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: Home },
-    { name: 'Investment', href: '/investment', icon: PieChart },
+    { name: 'Investment', href: '/investment', icon: DollarSign },
     { name: 'Referrals', href: '/referrals', icon: Users },
     { name: 'Withdraw', href: '/withdraw', icon: Wallet },
   ];
@@ -30,16 +30,16 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-blue-600 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
-            <div className="flex items-center">
-              <TrendingUp className="h-8 w-8 text-blue-600 mr-2" />
-              <h1 className="text-2xl font-bold text-gray-900">InvestX</h1>
-            </div>
+            <Link to="/dashboard" className="flex items-center hover:opacity-80 transition-opacity">
+              <TrendingUp className="h-8 w-8 text-white mr-2" />
+              <h1 className="text-2xl font-bold text-white">InvestX</h1>
+            </Link>
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-500">Welcome, {user?.name}</span>
-              <Button variant="outline" size="sm" onClick={handleLogout}>
+              <span className="text-white">Welcome, {user?.name}</span>
+              <Button variant="outline" size="sm" onClick={handleLogout} className="border-white text-white hover:bg-blue-700">
                 <LogOut className="h-4 w-4 mr-2" />
                 Logout
               </Button>

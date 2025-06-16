@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +21,15 @@ const AdminLogin = () => {
       navigate('/admin/dashboard', { replace: true });
     }
   }, [isAdminAuthenticated, navigate]);
+
+  // Don't render login form if admin is already authenticated
+  if (isAdminAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-red-600"></div>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,6 +89,9 @@ const AdminLogin = () => {
             <p className="text-sm text-gray-500">
               Admin credentials required for access
             </p>
+            <Link to="/" className="text-sm text-gray-500 hover:text-gray-700 mt-2 inline-block">
+              ← Back to Home
+            </Link>
           </div>
         </CardContent>
       </Card>
