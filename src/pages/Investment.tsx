@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import DashboardLayout from '@/components/DashboardLayout';
@@ -9,7 +8,7 @@ import { toast } from '@/hooks/use-toast';
 import { TrendingUp, Clock, CheckCircle, AlertCircle } from 'lucide-react';
 
 const Investment = () => {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [packages, setPackages] = useState([]);
   const [userInvestments, setUserInvestments] = useState([]);
 
@@ -77,21 +76,14 @@ const Investment = () => {
     allInvestments.push(newInvestment);
     localStorage.setItem('investx_investments', JSON.stringify(allInvestments));
 
-    // Update user balance and total invested
-    const updatedUser = {
-      ...user,
-      balance: user.balance - selectedPackage.amount,
-      totalInvested: user.totalInvested + selectedPackage.amount,
-    };
+    // Update user balance and total invested immediately
+    const newBalance = user.balance - selectedPackage.amount;
+    const newTotalInvested = user.totalInvested + selectedPackage.amount;
     
-    // Update user in localStorage
-    const users = JSON.parse(localStorage.getItem('investx_users') || '[]');
-    const userIndex = users.findIndex((u: any) => u.id === user.id);
-    if (userIndex !== -1) {
-      users[userIndex] = { ...users[userIndex], ...updatedUser };
-      localStorage.setItem('investx_users', JSON.stringify(users));
-      localStorage.setItem('investx_user', JSON.stringify(updatedUser));
-    }
+    updateUser({
+      balance: newBalance,
+      totalInvested: newTotalInvested,
+    });
 
     setUserInvestments([...userInvestments, newInvestment]);
 

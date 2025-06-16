@@ -11,7 +11,7 @@ import { toast } from '@/hooks/use-toast';
 import { Wallet, Clock, CheckCircle, AlertCircle, Calendar } from 'lucide-react';
 
 const Withdraw = () => {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [withdrawalRequests, setWithdrawalRequests] = useState([]);
   const [isWeekend, setIsWeekend] = useState(false);
@@ -20,7 +20,7 @@ const Withdraw = () => {
     // Check if it's weekend
     const today = new Date();
     const dayOfWeek = today.getDay();
-    setIsWeekend(dayOfWeek === 0 || dayOfWeek === 6); // Sunday = 0, Saturday = 6
+    setIsWeekend(dayOfWeek === 0 || dayOfWeek === 6);
 
     // Load user's withdrawal requests
     if (user) {
@@ -94,6 +94,11 @@ const Withdraw = () => {
     const allWithdrawals = JSON.parse(localStorage.getItem('investx_withdrawals') || '[]');
     allWithdrawals.push(newWithdrawal);
     localStorage.setItem('investx_withdrawals', JSON.stringify(allWithdrawals));
+
+    // Immediately deduct the amount from user's balance
+    updateUser({
+      balance: user.balance - amount
+    });
 
     setWithdrawalRequests([...withdrawalRequests, newWithdrawal]);
     setWithdrawAmount('');

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import AdminLayout from '@/components/AdminLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,10 +26,6 @@ interface User {
 
 const AdminUsers = () => {
   const [users, setUsers] = useState<User[]>([]);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [creditAmount, setCreditAmount] = useState('');
-  const [creditNotes, setCreditNotes] = useState('');
 
   useEffect(() => {
     const savedUsers = localStorage.getItem('investx_users');
@@ -42,6 +37,9 @@ const AdminUsers = () => {
   const saveUsers = (newUsers: User[]) => {
     setUsers(newUsers);
     localStorage.setItem('investx_users', JSON.stringify(newUsers));
+    
+    // Trigger custom event for real-time updates across tabs/components
+    window.dispatchEvent(new CustomEvent('userBalanceUpdated'));
   };
 
   const updateUserSession = (userId: string, updatedUserData: Partial<User>) => {
@@ -87,7 +85,7 @@ const AdminUsers = () => {
 
     const amountNumber = Number(amount);
 
-    // Update user balance
+    // Update user balance immediately in state and localStorage
     const updatedUsers = users.map(u => {
       if (u.id === user.id) {
         return {
@@ -130,29 +128,6 @@ const AdminUsers = () => {
       title: "Money Added Successfully",
       description: `${amountNumber.toLocaleString()} RWF has been added to ${user.name}'s account.`,
     });
-
-    // Force a page refresh to ensure the UI updates
-    window.location.reload();
-  };
-
-  const handleCreditUser = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!selectedUser || !creditAmount) {
-      toast({
-        title: "Error",
-        description: "Please select a user and enter an amount.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    handleAddMoney(selectedUser, creditAmount);
-    
-    setIsDialogOpen(false);
-    setSelectedUser(null);
-    setCreditAmount('');
-    setCreditNotes('');
   };
 
   const activeUsers = users.filter(u => u.isActive);

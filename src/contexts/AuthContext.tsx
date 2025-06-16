@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
@@ -24,6 +23,7 @@ interface AuthContextType {
   register: (userData: any) => Promise<boolean>;
   logout: () => void;
   updateUser: (userData: Partial<User>) => void;
+  refreshUser: () => void;
   isLoading: boolean;
 }
 
@@ -41,6 +41,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Function to refresh user data from localStorage
+  const refreshUser = () => {
+    if (user) {
+      const users = JSON.parse(localStorage.getItem('investx_users') || '[]');
+      const updatedUser = users.find((u: any) => u.id === user.id);
+      if (updatedUser) {
+        const userSession = { ...updatedUser };
+        delete userSession.password;
+        setUser(userSession);
+        localStorage.setItem('investx_user', JSON.stringify(userSession));
+      }
+    }
+  };
+
   useEffect(() => {
     // Check for existing session
     const savedUser = localStorage.getItem('investx_user');
@@ -48,7 +62,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(JSON.parse(savedUser));
     }
     setIsLoading(false);
-  }, []);
+
+    // Listen for storage changes (when admin updates user data)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'investx_users' && user) {
+        setTimeout(refreshUser, 100); // Small delay to ensure data is written
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Also listen for custom events within the same tab
+    const handleUserUpdate = () => {
+      setTimeout(refreshUser, 100);
+    };
+    
+    window.addEventListener('userBalanceUpdated', handleUserUpdate);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('userBalanceUpdated', handleUserUpdate);
+    };
+  }, [user]);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
@@ -166,6 +201,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (userIndex !== -1) {
         users[userIndex] = { ...users[userIndex], ...userData };
         localStorage.setItem('investx_users', JSON.stringify(users));
+        
+        // Trigger custom event for real-time updates
+        window.dispatchEvent(new CustomEvent('userBalanceUpdated'));
       }
     }
   };
@@ -177,6 +215,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       register,
       logout,
       updateUser,
+      refreshUser,
       isLoading,
     }}>
       {children}
