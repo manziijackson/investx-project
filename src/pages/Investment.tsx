@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import DashboardLayout from '@/components/DashboardLayout';
@@ -6,24 +7,78 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 import { TrendingUp, Clock, CheckCircle, AlertCircle } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 const Investment = () => {
   const { user, updateUser } = useAuth();
   const [packages, setPackages] = useState([]);
   const [userInvestments, setUserInvestments] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchData = async () => {
+    try {
+      // Fetch investment packages
+      const { data: packagesData, error: packagesError } = await supabase
+        .from('investment_packages')
+        .select('*')
+        .eq('is_active', true)
+        .order('min_amount');
+
+      if (packagesError) throw packagesError;
+
+      const formattedPackages = packagesData.map((pkg: any) => ({
+        id: pkg.id,
+        name: pkg.name,
+        amount: parseFloat(pkg.min_amount),
+        returnAmount: parseFloat(pkg.min_amount) * (1 + parseFloat(pkg.profit_percentage) / 100),
+        duration: pkg.duration_days,
+        maxUses: 3, // Default max uses per package
+        isActive: pkg.is_active,
+        description: `${pkg.profit_percentage}% profit in ${pkg.duration_days} days`,
+      }));
+
+      setPackages(formattedPackages);
+
+      // Fetch user investments if user is logged in
+      if (user) {
+        const { data: investmentsData, error: investmentsError } = await supabase
+          .from('user_investments')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('status', 'active');
+
+        if (investmentsError) throw investmentsError;
+
+        const formattedInvestments = investmentsData.map((inv: any) => ({
+          id: inv.id,
+          packageId: inv.package_id,
+          packageName: formattedPackages.find((pkg: any) => pkg.id === inv.package_id)?.name || 'Unknown Package',
+          amount: parseFloat(inv.amount),
+          returnAmount: parseFloat(inv.expected_return),
+          createdAt: inv.start_date,
+          maturityDate: inv.end_date || new Date(new Date(inv.start_date).getTime() + (30 * 24 * 60 * 60 * 1000)).toISOString(),
+          status: inv.status,
+        }));
+
+        setUserInvestments(formattedInvestments);
+      }
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load investment data.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    // Load investment packages
-    const allPackages = JSON.parse(localStorage.getItem('investx_packages') || '[]');
-    setPackages(allPackages.filter((pkg: any) => pkg.isActive));
-
-    // Load user investments
-    const investments = JSON.parse(localStorage.getItem('investx_investments') || '[]');
-    const userInvs = investments.filter((inv: any) => inv.userId === user?.id);
-    setUserInvestments(userInvs);
+    fetchData();
   }, [user]);
 
-  const handleInvestment = (packageId: string) => {
+  const handleInvestment = async (packageId: string) => {
     if (!user?.isActive) {
       toast({
         title: "Account Not Active",
@@ -57,41 +112,55 @@ const Investment = () => {
       return;
     }
 
-    // Create new investment
-    const newInvestment = {
-      id: Date.now().toString(),
-      userId: user.id,
-      packageId: packageId,
-      packageName: selectedPackage.name,
-      amount: selectedPackage.amount,
-      returnAmount: selectedPackage.returnAmount,
-      duration: selectedPackage.duration,
-      createdAt: new Date().toISOString(),
-      maturityDate: new Date(Date.now() + selectedPackage.duration * 24 * 60 * 60 * 1000).toISOString(),
-      status: 'active',
-    };
+    try {
+      // Create new investment
+      const { error: investmentError } = await supabase
+        .from('user_investments')
+        .insert({
+          user_id: user.id,
+          package_id: packageId,
+          amount: selectedPackage.amount,
+          expected_return: selectedPackage.returnAmount,
+          status: 'active',
+        });
 
-    // Save investment
-    const allInvestments = JSON.parse(localStorage.getItem('investx_investments') || '[]');
-    allInvestments.push(newInvestment);
-    localStorage.setItem('investx_investments', JSON.stringify(allInvestments));
+      if (investmentError) throw investmentError;
 
-    // Update user balance and total invested immediately
-    const newBalance = user.balance - selectedPackage.amount;
-    const newTotalInvested = user.totalInvested + selectedPackage.amount;
-    
-    updateUser({
-      balance: newBalance,
-      totalInvested: newTotalInvested,
-    });
+      // Update user balance and total invested
+      const newBalance = user.balance - selectedPackage.amount;
+      const newTotalInvested = user.totalInvested + selectedPackage.amount;
+      
+      await updateUser({
+        balance: newBalance,
+        totalInvested: newTotalInvested,
+      });
 
-    setUserInvestments([...userInvestments, newInvestment]);
+      toast({
+        title: "Investment Successful",
+        description: `You have successfully invested in ${selectedPackage.name}`,
+      });
 
-    toast({
-      title: "Investment Successful",
-      description: `You have successfully invested in ${selectedPackage.name}`,
-    });
+      // Refresh data
+      fetchData();
+    } catch (error) {
+      console.error('Investment error:', error);
+      toast({
+        title: "Investment Failed",
+        description: "Failed to process your investment. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex justify-center items-center h-64">
+          <div className="text-lg">Loading investment packages...</div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -149,7 +218,7 @@ const Investment = () => {
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm font-medium">Profit</span>
-                      <span className="font-semibold text-blue-600">
+                      <span className="font-sem ibold text-blue-600">
                         {(pkg.returnAmount - pkg.amount).toLocaleString()} RWF
                       </span>
                     </div>

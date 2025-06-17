@@ -6,53 +6,116 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Wallet, Check, X, Clock } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface WithdrawalRequest {
   id: string;
-  userId: string;
+  user_id: string;
   userName: string;
   userEmail: string;
   amount: number;
   fee: number;
-  netAmount: number;
+  net_amount: number;
   status: 'pending' | 'approved' | 'rejected';
-  requestDate: string;
-  processedDate?: string;
+  request_date: string;
+  processed_date?: string;
 }
 
 const AdminWithdrawals = () => {
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const savedWithdrawals = localStorage.getItem('investx_withdrawals');
-    if (savedWithdrawals) {
-      setWithdrawals(JSON.parse(savedWithdrawals));
+  const fetchWithdrawals = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('withdrawal_requests')
+        .select(`
+          *,
+          users (
+            name,
+            email
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedWithdrawals = data.map((withdrawal: any) => ({
+        id: withdrawal.id,
+        user_id: withdrawal.user_id,
+        userName: withdrawal.users.name,
+        userEmail: withdrawal.users.email,
+        amount: parseFloat(withdrawal.amount),
+        fee: parseFloat(withdrawal.fee),
+        net_amount: parseFloat(withdrawal.net_amount),
+        status: withdrawal.status,
+        request_date: withdrawal.request_date,
+        processed_date: withdrawal.processed_date,
+      }));
+
+      setWithdrawals(formattedWithdrawals);
+    } catch (error) {
+      console.error('Error fetching withdrawals:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch withdrawal requests.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
-  }, []);
-
-  const saveWithdrawals = (newWithdrawals: WithdrawalRequest[]) => {
-    setWithdrawals(newWithdrawals);
-    localStorage.setItem('investx_withdrawals', JSON.stringify(newWithdrawals));
   };
 
-  const handleApproval = (id: string, action: 'approved' | 'rejected') => {
-    const updatedWithdrawals = withdrawals.map(withdrawal => {
-      if (withdrawal.id === id) {
-        return {
-          ...withdrawal,
-          status: action,
-          processedDate: new Date().toISOString()
-        };
-      }
-      return withdrawal;
-    });
+  useEffect(() => {
+    fetchWithdrawals();
 
-    saveWithdrawals(updatedWithdrawals);
-    
-    toast({
-      title: `Withdrawal ${action === 'approved' ? 'Approved' : 'Rejected'}`,
-      description: `The withdrawal request has been ${action}.`,
-    });
+    // Set up real-time subscription for withdrawal updates
+    const subscription = supabase
+      .channel('withdrawal-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'withdrawal_requests'
+        },
+        () => {
+          fetchWithdrawals();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
+  }, []);
+
+  const handleApproval = async (id: string, action: 'approved' | 'rejected') => {
+    try {
+      const { error } = await supabase
+        .from('withdrawal_requests')
+        .update({
+          status: action,
+          processed_by: 'admin',
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: `Withdrawal ${action === 'approved' ? 'Approved' : 'Rejected'}`,
+        description: `The withdrawal request has been ${action}.${action === 'rejected' ? ' Amount returned to user balance.' : ''}`,
+      });
+
+      fetchWithdrawals();
+    } catch (error) {
+      console.error('Error updating withdrawal:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update withdrawal request.",
+        variant: "destructive",
+      });
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -62,6 +125,16 @@ const AdminWithdrawals = () => {
       default: return 'bg-yellow-100 text-yellow-800';
     }
   };
+
+  if (loading) {
+    return (
+      <AdminLayout>
+        <div className="flex justify-center items-center h-64">
+          <div className="text-lg">Loading withdrawal requests...</div>
+        </div>
+      </AdminLayout>
+    );
+  }
 
   const pendingWithdrawals = withdrawals.filter(w => w.status === 'pending');
   const processedWithdrawals = withdrawals.filter(w => w.status !== 'pending');
@@ -145,11 +218,11 @@ const AdminWithdrawals = () => {
                       </div>
                       <div>
                         <p className="text-sm text-gray-600">Net Amount</p>
-                        <p className="font-semibold text-green-600">{withdrawal.netAmount.toLocaleString()} RWF</p>
+                        <p className="font-semibold text-green-600">{withdrawal.net_amount.toLocaleString()} RWF</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-600">Request Date</p>
-                        <p className="font-semibold">{new Date(withdrawal.requestDate).toLocaleDateString()}</p>
+                        <p className="font-semibold">{new Date(withdrawal.request_date).toLocaleDateString()}</p>
                       </div>
                     </div>
                     <div className="flex space-x-2">
@@ -208,16 +281,16 @@ const AdminWithdrawals = () => {
                       </div>
                       <div>
                         <p className="text-sm text-gray-600">Net Amount</p>
-                        <p className="font-semibold">{withdrawal.netAmount.toLocaleString()} RWF</p>
+                        <p className="font-semibold">{withdrawal.net_amount.toLocaleString()} RWF</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-600">Requested</p>
-                        <p className="font-semibold">{new Date(withdrawal.requestDate).toLocaleDateString()}</p>
+                        <p className="font-semibold">{new Date(withdrawal.request_date).toLocaleDateString()}</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-600">Processed</p>
                         <p className="font-semibold">
-                          {withdrawal.processedDate ? new Date(withdrawal.processedDate).toLocaleDateString() : '-'}
+                          {withdrawal.processed_date ? new Date(withdrawal.processed_date).toLocaleDateString() : '-'}
                         </p>
                       </div>
                     </div>
