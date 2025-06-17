@@ -160,6 +160,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return false;
       }
 
+      // Check if account is activated
+      if (!data.is_active) {
+        toast({
+          title: "Account Not Activated",
+          description: "Your account is pending admin approval. Please wait for activation or contact support.",
+          variant: "destructive",
+        });
+        return false;
+      }
+
       const userSession: User = {
         id: data.id,
         name: data.name,

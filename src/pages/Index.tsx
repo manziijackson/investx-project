@@ -3,25 +3,33 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { TrendingUp, Users, Shield, Award } from 'lucide-react';
+import { TrendingUp, Users, Shield, Award, DollarSign, Clock, Star, CheckCircle } from 'lucide-react';
 
 const Index = () => {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
       {/* Header */}
-      <header className="bg-white shadow-sm">
+      <header className="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
+          <div className="flex justify-between items-center py-4">
             <div className="flex items-center">
-              <TrendingUp className="h-8 w-8 text-blue-600 mr-2" />
-              <h1 className="text-2xl font-bold text-gray-900">InvestX</h1>
+              <div className="p-2 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg mr-3">
+                <TrendingUp className="h-6 w-6 text-white" />
+              </div>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                InvestX
+              </h1>
             </div>
-            <div className="flex space-x-4">
+            <div className="flex space-x-3">
               <Link to="/login">
-                <Button variant="outline">Login</Button>
+                <Button variant="outline" className="border-blue-600 text-blue-600 hover:bg-blue-50">
+                  Login
+                </Button>
               </Link>
               <Link to="/register">
-                <Button>Get Started</Button>
+                <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
+                  Get Started
+                </Button>
               </Link>
             </div>
           </div>
@@ -29,61 +37,129 @@ const Index = () => {
       </header>
 
       {/* Hero Section */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="text-center">
-          <h1 className="text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl">
-            <span className="block">Grow Your Wealth with</span>
-            <span className="block text-blue-600">InvestX Platform</span>
-          </h1>
-          <p className="mt-3 max-w-md mx-auto text-base text-gray-500 sm:text-lg md:mt-5 md:text-xl md:max-w-3xl">
-            Start your investment journey with as little as 5,000 RWF. Professional investment management with guaranteed returns and referral bonuses.
-          </p>
-          <div className="mt-5 max-w-md mx-auto sm:flex sm:justify-center md:mt-8">
-            <div className="rounded-md shadow">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="py-16 text-center">
+          <div className="max-w-4xl mx-auto">
+            <h1 className="text-5xl md:text-6xl font-extrabold text-gray-900 mb-6">
+              <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                Grow Your Wealth
+              </span>
+              <br />
+              <span className="text-gray-800">with InvestX</span>
+            </h1>
+            <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto leading-relaxed">
+              Start your investment journey with as little as <strong className="text-blue-600">5,000 RWF</strong>. 
+              Professional investment management with guaranteed returns, referral bonuses, and 24/7 support.
+            </p>
+            
+            {/* CTA Buttons */}
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
               <Link to="/register">
-                <Button className="w-full flex items-center justify-center px-8 py-3 text-base font-medium">
+                <Button size="lg" className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 px-8 py-3 text-lg">
                   Start Investing Today
                 </Button>
               </Link>
-            </div>
-            <div className="mt-3 rounded-md shadow sm:mt-0 sm:ml-3">
               <Link to="/how-it-works">
-                <Button variant="outline" className="w-full flex items-center justify-center px-8 py-3 text-base font-medium">
-                  How It Works
+                <Button size="lg" variant="outline" className="border-blue-600 text-blue-600 hover:bg-blue-50 px-8 py-3 text-lg">
+                  Learn How It Works
                 </Button>
               </Link>
+            </div>
+
+            {/* Trust Indicators */}
+            <div className="flex flex-wrap justify-center items-center gap-8 mb-16 text-sm text-gray-600">
+              <div className="flex items-center">
+                <Shield className="h-5 w-5 text-green-600 mr-2" />
+                <span>Secure Platform</span>
+              </div>
+              <div className="flex items-center">
+                <Star className="h-5 w-5 text-yellow-500 mr-2" />
+                <span>5-Star Rated</span>
+              </div>
+              <div className="flex items-center">
+                <Users className="h-5 w-5 text-blue-600 mr-2" />
+                <span>10,000+ Investors</span>
+              </div>
             </div>
           </div>
         </div>
 
+        {/* Investment Packages Preview */}
+        <div className="mb-16">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">Investment Packages</h2>
+            <p className="text-gray-600 max-w-2xl mx-auto">Choose from our carefully designed investment packages to match your financial goals</p>
+          </div>
+          
+          <div className="grid md:grid-cols-4 gap-6">
+            {[
+              { name: 'Starter', min: '10,000', max: '50,000', return: '15%', days: '7' },
+              { name: 'Premium', min: '50,000', max: '200,000', return: '25%', days: '14' },
+              { name: 'VIP', min: '200,000', max: '1,000,000', return: '40%', days: '30' },
+              { name: 'Enterprise', min: '1,000,000', max: '10,000,000', return: '60%', days: '60' }
+            ].map((pkg, index) => (
+              <Card key={index} className="bg-white/80 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                <CardHeader className="text-center">
+                  <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <TrendingUp className="h-6 w-6 text-white" />
+                  </div>
+                  <CardTitle className="text-xl">{pkg.name} Package</CardTitle>
+                  <div className="text-2xl font-bold text-green-600">{pkg.return}</div>
+                  <div className="text-sm text-gray-600">Return in {pkg.days} days</div>
+                </CardHeader>
+                <CardContent className="text-center">
+                  <div className="space-y-2 text-sm">
+                    <p><strong>Min:</strong> {pkg.min} RWF</p>
+                    <p><strong>Max:</strong> {pkg.max} RWF</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+
         {/* Payment Instructions */}
-        <div className="mt-16">
-          <Card className="max-w-2xl mx-auto bg-gradient-to-r from-green-50 to-blue-50 border-green-200">
+        <div className="mb-16">
+          <Card className="max-w-4xl mx-auto bg-gradient-to-r from-green-50 to-blue-50 border-green-200 shadow-xl">
             <CardHeader className="text-center">
-              <CardTitle className="text-2xl text-green-800">Quick Payment Instructions</CardTitle>
-              <CardDescription className="text-green-600">Get started in 3 simple steps</CardDescription>
+              <CardTitle className="text-3xl text-green-800 mb-2">Quick Start Guide</CardTitle>
+              <CardDescription className="text-green-600 text-lg">Get started in 3 simple steps</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="bg-white p-4 rounded-lg border border-green-200">
-                <h3 className="font-semibold text-green-800 mb-2">📲 Step 1: Send Payment</h3>
-                <p className="text-gray-700">Send 5,000 RWF via MTN Mobile Money to: <strong>+250 736 563 999</strong></p>
+            <CardContent className="space-y-6">
+              <div className="grid md:grid-cols-3 gap-6">
+                <div className="bg-white p-6 rounded-xl border border-green-200 text-center">
+                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-green-600 font-bold text-xl">1</span>
+                  </div>
+                  <h3 className="font-semibold text-green-800 mb-2">📲 Send Payment</h3>
+                  <p className="text-gray-700 text-sm">Send 5,000 RWF via MTN Mobile Money to: <strong>+250 736 563 999</strong></p>
+                </div>
+                
+                <div className="bg-white p-6 rounded-xl border border-green-200 text-center">
+                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-green-600 font-bold text-xl">2</span>
+                  </div>
+                  <h3 className="font-semibold text-green-800 mb-2">📸 Share Screenshot</h3>
+                  <p className="text-gray-700 text-sm">Send payment screenshot via WhatsApp to the same number</p>
+                </div>
+                
+                <div className="bg-white p-6 rounded-xl border border-green-200 text-center">
+                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-green-600 font-bold text-xl">3</span>
+                  </div>
+                  <h3 className="font-semibold text-green-800 mb-2">✅ Start Investing</h3>
+                  <p className="text-gray-700 text-sm">Your account will be activated within 24 hours</p>
+                </div>
               </div>
-              <div className="bg-white p-4 rounded-lg border border-green-200">
-                <h3 className="font-semibold text-green-800 mb-2">📸 Step 2: Send Screenshot</h3>
-                <p className="text-gray-700">Send payment screenshot via WhatsApp to the same number</p>
-              </div>
-              <div className="bg-white p-4 rounded-lg border border-green-200">
-                <h3 className="font-semibold text-green-800 mb-2">✅ Step 3: Account Activation</h3>
-                <p className="text-gray-700">Your account will be activated within 24 hours</p>
-              </div>
-              <div className="text-center pt-4">
+              
+              <div className="text-center pt-6">
                 <a 
                   href="https://wa.me/250736563999?text=Hello%2C%20I%20sent%20the%205000%20RWF%20payment%2C%20here%20is%20my%20screenshot" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="inline-block"
                 >
-                  <Button className="bg-green-600 hover:bg-green-700">
+                  <Button className="bg-green-600 hover:bg-green-700 px-8 py-3 text-lg">
                     📱 Contact on WhatsApp
                   </Button>
                 </a>
@@ -93,79 +169,137 @@ const Index = () => {
         </div>
 
         {/* Features */}
-        <div className="mt-16">
-          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
-            <Card>
+        <div className="mb-16">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">Why Choose InvestX?</h2>
+            <p className="text-gray-600 max-w-2xl mx-auto">We provide a comprehensive investment platform designed for your success</p>
+          </div>
+          
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+            <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300">
               <CardHeader className="text-center">
-                <TrendingUp className="h-10 w-10 text-blue-600 mx-auto" />
-                <CardTitle>High Returns</CardTitle>
+                <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <TrendingUp className="h-8 w-8 text-white" />
+                </div>
+                <CardTitle className="text-xl">High Returns</CardTitle>
               </CardHeader>
-              <CardContent>
-                <p className="text-gray-600 text-center">Guaranteed returns on your investments with professional management</p>
+              <CardContent className="text-center">
+                <p className="text-gray-600">Guaranteed returns up to 60% with professional investment management and proven strategies.</p>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300">
               <CardHeader className="text-center">
-                <Users className="h-10 w-10 text-green-600 mx-auto" />
-                <CardTitle>Referral Bonuses</CardTitle>
+                <div className="w-16 h-16 bg-gradient-to-r from-green-500 to-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Users className="h-8 w-8 text-white" />
+                </div>
+                <CardTitle className="text-xl">Referral Bonuses</CardTitle>
               </CardHeader>
-              <CardContent>
-                <p className="text-gray-600 text-center">Earn extra income by referring friends and family to our platform</p>
+              <CardContent className="text-center">
+                <p className="text-gray-600">Earn extra income by referring friends and family to our platform with competitive bonus rates.</p>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300">
               <CardHeader className="text-center">
-                <Shield className="h-10 w-10 text-purple-600 mx-auto" />
-                <CardTitle>Secure Platform</CardTitle>
+                <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Shield className="h-8 w-8 text-white" />
+                </div>
+                <CardTitle className="text-xl">Secure Platform</CardTitle>
               </CardHeader>
-              <CardContent>
-                <p className="text-gray-600 text-center">Your investments are safe with our secure and monitored platform</p>
+              <CardContent className="text-center">
+                <p className="text-gray-600">Your investments are protected with bank-level security and continuous monitoring.</p>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300">
               <CardHeader className="text-center">
-                <Award className="h-10 w-10 text-orange-600 mx-auto" />
-                <CardTitle>Professional Team</CardTitle>
+                <div className="w-16 h-16 bg-gradient-to-r from-orange-500 to-orange-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Award className="h-8 w-8 text-white" />
+                </div>
+                <CardTitle className="text-xl">Expert Team</CardTitle>
               </CardHeader>
-              <CardContent>
-                <p className="text-gray-600 text-center">Expert investment managers with years of market experience</p>
+              <CardContent className="text-center">
+                <p className="text-gray-600">Professional investment managers with years of market experience and proven track record.</p>
               </CardContent>
             </Card>
           </div>
         </div>
 
+        {/* Statistics */}
+        <div className="mb-16">
+          <Card className="bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-2xl">
+            <CardContent className="py-16">
+              <div className="text-center mb-12">
+                <h2 className="text-3xl font-bold mb-4">Trusted by Thousands</h2>
+                <p className="text-blue-100 text-lg">Join our growing community of successful investors</p>
+              </div>
+              
+              <div className="grid md:grid-cols-4 gap-8 text-center">
+                <div>
+                  <div className="text-4xl font-bold mb-2">10,000+</div>
+                  <div className="text-blue-100">Active Investors</div>
+                </div>
+                <div>
+                  <div className="text-4xl font-bold mb-2">50M+</div>
+                  <div className="text-blue-100">RWF Invested</div>
+                </div>
+                <div>
+                  <div className="text-4xl font-bold mb-2">15M+</div>
+                  <div className="text-blue-100">RWF Paid Out</div>
+                </div>
+                <div>
+                  <div className="text-4xl font-bold mb-2">99.8%</div>
+                  <div className="text-blue-100">Success Rate</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Call to Action */}
-        <div className="mt-16 text-center">
-          <Card className="max-w-4xl mx-auto bg-blue-600 text-white">
-            <CardContent className="py-12">
-              <h2 className="text-3xl font-bold mb-4">Ready to Start Your Investment Journey?</h2>
-              <p className="text-xl mb-8 text-blue-100">Join thousands of investors who trust InvestX with their financial future</p>
-              <Link to="/register">
-                <Button size="lg" variant="secondary" className="text-blue-600">
-                  Create Your Account Now
-                </Button>
-              </Link>
+        <div className="text-center mb-16">
+          <Card className="max-w-4xl mx-auto bg-gradient-to-r from-gray-50 to-blue-50 border-0 shadow-xl">
+            <CardContent className="py-16">
+              <h2 className="text-4xl font-bold text-gray-900 mb-6">Ready to Start Your Investment Journey?</h2>
+              <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
+                Join thousands of investors who trust InvestX with their financial future. Start with as little as 5,000 RWF today.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Link to="/register">
+                  <Button size="lg" className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 px-8 py-3 text-lg">
+                    Create Your Account Now
+                  </Button>
+                </Link>
+                <Link to="/how-it-works">
+                  <Button size="lg" variant="outline" className="border-blue-600 text-blue-600 hover:bg-blue-50 px-8 py-3 text-lg">
+                    Learn More
+                  </Button>
+                </Link>
+              </div>
             </CardContent>
           </Card>
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="bg-gray-800 text-white mt-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <footer className="bg-gray-900 text-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="text-center">
-            <div className="flex items-center justify-center mb-4">
-              <TrendingUp className="h-6 w-6 mr-2" />
-              <span className="text-xl font-bold">InvestX</span>
+            <div className="flex items-center justify-center mb-6">
+              <div className="p-2 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg mr-3">
+                <TrendingUp className="h-6 w-6 text-white" />
+              </div>
+              <span className="text-2xl font-bold">InvestX</span>
             </div>
-            <p className="text-gray-400">© 2024 InvestX. All rights reserved.</p>
-            <div className="mt-4 space-x-6">
-              <Link to="/how-it-works" className="text-gray-400 hover:text-white">How It Works</Link>
-              <Link to="/login" className="text-gray-400 hover:text-white">Login</Link>
-              <Link to="/register" className="text-gray-400 hover:text-white">Register</Link>
+            <p className="text-gray-400 mb-6">Your trusted partner in building wealth through smart investments.</p>
+            <div className="flex justify-center space-x-8 mb-6">
+              <Link to="/how-it-works" className="text-gray-400 hover:text-white transition-colors">How It Works</Link>
+              <Link to="/login" className="text-gray-400 hover:text-white transition-colors">Login</Link>
+              <Link to="/register" className="text-gray-400 hover:text-white transition-colors">Register</Link>
+            </div>
+            <div className="border-t border-gray-800 pt-6">
+              <p className="text-gray-500">© 2024 InvestX. All rights reserved.</p>
             </div>
           </div>
         </div>
