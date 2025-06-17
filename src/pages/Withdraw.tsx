@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 import { Wallet, Clock, CheckCircle, AlertCircle, Calendar } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 const Withdraw = () => {
   const { user, updateUser } = useAuth();
@@ -22,15 +23,44 @@ const Withdraw = () => {
     const dayOfWeek = today.getDay();
     setIsWeekend(dayOfWeek === 0 || dayOfWeek === 6);
 
-    // Load user's withdrawal requests
+    // Load user's withdrawal requests from Supabase
     if (user) {
-      const allWithdrawals = JSON.parse(localStorage.getItem('investx_withdrawals') || '[]');
-      const userWithdrawals = allWithdrawals.filter((w: any) => w.userId === user.id);
-      setWithdrawalRequests(userWithdrawals);
+      fetchWithdrawalRequests();
     }
   }, [user]);
 
-  const handleWithdrawal = () => {
+  const fetchWithdrawalRequests = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('withdrawal_requests')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedRequests = data.map((request: any) => ({
+        id: request.id,
+        userId: request.user_id,
+        amount: parseFloat(request.amount),
+        fee: parseFloat(request.fee),
+        netAmount: parseFloat(request.net_amount),
+        status: request.status,
+        createdAt: request.created_at,
+        processedDate: request.processed_date,
+        userName: user.name,
+        userPhone: user.phone,
+      }));
+
+      setWithdrawalRequests(formattedRequests);
+    } catch (error) {
+      console.error('Error fetching withdrawal requests:', error);
+    }
+  };
+
+  const handleWithdrawal = async () => {
     if (!user) return;
 
     const amount = parseFloat(withdrawAmount);
@@ -43,11 +73,11 @@ const Withdraw = () => {
       return;
     }
 
-    // Check minimum withdrawal amount
-    if (amount < 1000) {
+    // Check minimum withdrawal amount (changed to 3000)
+    if (amount < 3000) {
       toast({
         title: "Minimum Withdrawal",
-        description: "Minimum withdrawal amount is 1,000 RWF",
+        description: "Minimum withdrawal amount is 3,000 RWF",
         variant: "destructive",
       });
       return;
@@ -77,39 +107,46 @@ const Withdraw = () => {
     const fee = amount * 0.1;
     const netAmount = amount - fee;
 
-    // Create withdrawal request
-    const newWithdrawal = {
-      id: Date.now().toString(),
-      userId: user.id,
-      amount: amount,
-      fee: fee,
-      netAmount: netAmount,
-      status: 'pending',
-      createdAt: new Date().toISOString(),
-      userName: user.name,
-      userPhone: user.phone,
-    };
+    try {
+      // Create withdrawal request in Supabase
+      const { data, error } = await supabase
+        .from('withdrawal_requests')
+        .insert({
+          user_id: user.id,
+          amount: amount,
+          fee: fee,
+          net_amount: netAmount,
+          status: 'pending',
+          request_date: new Date().toISOString(),
+        })
+        .select()
+        .single();
 
-    // Save withdrawal request
-    const allWithdrawals = JSON.parse(localStorage.getItem('investx_withdrawals') || '[]');
-    allWithdrawals.push(newWithdrawal);
-    localStorage.setItem('investx_withdrawals', JSON.stringify(allWithdrawals));
+      if (error) throw error;
 
-    // Immediately deduct the amount from user's balance
-    updateUser({
-      balance: user.balance - amount
-    });
+      // Deduct the amount from user's balance immediately
+      updateUser({
+        balance: user.balance - amount
+      });
 
-    setWithdrawalRequests([...withdrawalRequests, newWithdrawal]);
-    setWithdrawAmount('');
+      setWithdrawAmount('');
+      await fetchWithdrawalRequests();
 
-    toast({
-      title: "Withdrawal Request Submitted",
-      description: `Your withdrawal request for ${amount.toLocaleString()} RWF has been submitted for review`,
-    });
+      toast({
+        title: "Withdrawal Request Submitted",
+        description: `Your withdrawal request for ${amount.toLocaleString()} RWF has been submitted for admin review`,
+      });
+    } catch (error) {
+      console.error('Error creating withdrawal request:', error);
+      toast({
+        title: "Error",
+        description: "Failed to submit withdrawal request. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const canWithdraw = user?.balance && user.balance >= 1000 && !isWeekend;
+  const canWithdraw = user?.balance && user.balance >= 3000 && !isWeekend;
   const withdrawalFee = withdrawAmount ? parseFloat(withdrawAmount) * 0.1 : 0;
   const netWithdrawal = withdrawAmount ? parseFloat(withdrawAmount) - withdrawalFee : 0;
 
@@ -180,7 +217,7 @@ const Withdraw = () => {
         <Card>
           <CardHeader>
             <CardTitle>Request Withdrawal</CardTitle>
-            <CardDescription>Submit a withdrawal request for review</CardDescription>
+            <CardDescription>Submit a withdrawal request for admin review</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -191,10 +228,10 @@ const Withdraw = () => {
                 placeholder="Enter amount to withdraw"
                 value={withdrawAmount}
                 onChange={(e) => setWithdrawAmount(e.target.value)}
-                min="1000"
+                min="3000"
                 max={user?.balance}
               />
-              <p className="text-sm text-gray-500">Minimum withdrawal: 1,000 RWF</p>
+              <p className="text-sm text-gray-500">Minimum withdrawal: 3,000 RWF</p>
             </div>
 
             {withdrawAmount && parseFloat(withdrawAmount) > 0 && (
@@ -220,17 +257,18 @@ const Withdraw = () => {
               className="w-full"
             >
               {isWeekend ? 'Withdrawals Closed (Weekend)' : 
-               !user?.balance || user.balance < 1000 ? 'Insufficient Balance' :
+               !user?.balance || user.balance < 3000 ? 'Insufficient Balance' :
                'Submit Withdrawal Request'}
             </Button>
 
             <div className="bg-blue-50 p-4 rounded-lg">
               <h3 className="font-semibold text-blue-800 mb-2">Withdrawal Information</h3>
               <ul className="text-sm text-blue-700 space-y-1">
+                <li>• Withdrawals require admin approval</li>
                 <li>• Withdrawals are processed Monday to Friday</li>
                 <li>• A 10% processing fee applies to all withdrawals</li>
-                <li>• Minimum withdrawal amount is 1,000 RWF</li>
-                <li>• Processing time: 1-3 business days</li>
+                <li>• Minimum withdrawal amount is 3,000 RWF</li>
+                <li>• Processing time: 1-3 business days after approval</li>
                 <li>• You'll receive payment via MTN Mobile Money</li>
               </ul>
             </div>
