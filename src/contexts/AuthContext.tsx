@@ -1,6 +1,5 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import bcrypt from 'bcryptjs';
@@ -62,9 +61,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             name: data.name,
             email: data.email,
             phone: data.phone,
-            balance: parseFloat(data.balance),
-            totalInvested: parseFloat(data.total_invested),
-            totalEarned: parseFloat(data.total_earned),
+            balance: parseFloat(data.balance.toString()),
+            totalInvested: parseFloat(data.total_invested.toString()),
+            totalEarned: parseFloat(data.total_earned.toString()),
             referralCode: data.referral_code,
             referredBy: data.referred_by,
             referralCount: data.referral_count,
@@ -110,9 +109,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               name: updatedData.name,
               email: updatedData.email,
               phone: updatedData.phone,
-              balance: parseFloat(updatedData.balance),
-              totalInvested: parseFloat(updatedData.total_invested),
-              totalEarned: parseFloat(updatedData.total_earned),
+              balance: parseFloat(updatedData.balance.toString()),
+              totalInvested: parseFloat(updatedData.total_invested.toString()),
+              totalEarned: parseFloat(updatedData.total_earned.toString()),
               referralCode: updatedData.referral_code,
               referredBy: updatedData.referred_by,
               referralCount: updatedData.referral_count,
@@ -166,9 +165,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         name: data.name,
         email: data.email,
         phone: data.phone,
-        balance: parseFloat(data.balance),
-        totalInvested: parseFloat(data.total_invested),
-        totalEarned: parseFloat(data.total_earned),
+        balance: parseFloat(data.balance.toString()),
+        totalInvested: parseFloat(data.total_invested.toString()),
+        totalEarned: parseFloat(data.total_earned.toString()),
         referralCode: data.referral_code,
         referredBy: data.referred_by,
         referralCount: data.referral_count,
@@ -236,10 +235,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Update referrer's count if applicable
       if (userData.referredBy) {
-        await supabase
+        // First get current referral count
+        const { data: referrer } = await supabase
           .from('users')
-          .update({ referral_count: supabase.sql`referral_count + 1` })
-          .eq('referral_code', userData.referredBy);
+          .select('referral_count')
+          .eq('referral_code', userData.referredBy)
+          .single();
+
+        if (referrer) {
+          await supabase
+            .from('users')
+            .update({ referral_count: referrer.referral_count + 1 })
+            .eq('referral_code', userData.referredBy);
+        }
       }
 
       toast({
