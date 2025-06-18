@@ -41,15 +41,26 @@ const Login = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-
-    const success = await login(email, password);
     
-    if (success) {
-      navigate(from, { replace: true });
+    if (!email.trim() || !password.trim()) {
+      return;
     }
     
-    setIsLoading(false);
+    setIsLoading(true);
+
+    try {
+      console.log('Starting login process...');
+      const success = await login(email.trim(), password);
+      
+      if (success) {
+        console.log('Login successful, navigating to:', from);
+        navigate(from, { replace: true });
+      }
+    } catch (error) {
+      console.error('Login submission error:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -74,6 +85,7 @@ const Login = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                disabled={isLoading}
               />
             </div>
             <div className="space-y-2">
@@ -85,9 +97,10 @@ const Login = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                disabled={isLoading}
               />
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button type="submit" className="w-full" disabled={isLoading || !email.trim() || !password.trim()}>
               {isLoading ? 'Signing In...' : 'Sign In'}
             </Button>
           </form>

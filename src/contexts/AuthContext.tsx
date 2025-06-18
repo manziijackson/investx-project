@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import bcrypt from 'bcryptjs';
+import { toast } from '@/hooks/use-toast';
 
 interface User {
   id: string;
@@ -72,18 +73,42 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
+      console.log('Attempting login for:', email);
+      
       const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('email', email)
         .single();
 
-      if (error || !data) {
+      if (error) {
+        console.error('Database error during login:', error);
+        toast({
+          title: "Login Failed",
+          description: "User not found or database error",
+          variant: "destructive",
+        });
         return false;
       }
 
+      if (!data) {
+        toast({
+          title: "Login Failed",
+          description: "No user found with this email",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      console.log('User found, checking password...');
       const isValidPassword = await bcrypt.compare(password, data.password_hash);
+      
       if (!isValidPassword) {
+        toast({
+          title: "Login Failed",
+          description: "Invalid password",
+          variant: "destructive",
+        });
         return false;
       }
 
@@ -105,15 +130,45 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       setUser(userData);
       localStorage.setItem('investx_user', JSON.stringify(userData));
+      
+      toast({
+        title: "Login Successful",
+        description: "Welcome back!",
+      });
+      
+      console.log('Login successful for user:', userData.name);
       return true;
     } catch (error) {
       console.error('Login error:', error);
+      toast({
+        title: "Login Error",
+        description: "An unexpected error occurred during login",
+        variant: "destructive",
+      });
       return false;
     }
   };
 
   const register = async (userData: RegisterData): Promise<boolean> => {
     try {
+      console.log('Attempting registration for:', userData.email);
+      
+      // Check if user already exists
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('email')
+        .eq('email', userData.email)
+        .single();
+
+      if (existingUser) {
+        toast({
+          title: "Registration Failed",
+          description: "An account with this email already exists",
+          variant: "destructive",
+        });
+        return false;
+      }
+
       const hashedPassword = await bcrypt.hash(userData.password, 10);
       const referralCode = generateReferralCode();
 
@@ -132,6 +187,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         is_active: false,
       };
 
+      console.log('Inserting new user...');
       const { data, error } = await supabase
         .from('users')
         .insert(insertData)
@@ -140,12 +196,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       if (error) {
         console.error('Registration error:', error);
+        toast({
+          title: "Registration Failed",
+          description: error.message || "Failed to create account",
+          variant: "destructive",
+        });
         return false;
       }
 
       // If user was referred, increment referrer's count
       if (userData.referralCode) {
-        // First get the current referral count
+        console.log('Processing referral for code:', userData.referralCode);
+        
         const { data: referrer, error: fetchError } = await supabase
           .from('users')
           .select('referral_count')
@@ -153,7 +215,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           .single();
 
         if (!fetchError && referrer) {
-          // Update with incremented count
           const { error: updateError } = await supabase
             .from('users')
             .update({ referral_count: (referrer.referral_count || 0) + 1 })
@@ -161,13 +222,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
           if (updateError) {
             console.error('Error updating referrer count:', updateError);
+          } else {
+            console.log('Referral count updated successfully');
           }
         }
       }
 
+      toast({
+        title: "Registration Successful",
+        description: "Your account has been created. Please proceed with payment to activate your account.",
+      });
+      
+      console.log('Registration successful for:', userData.email);
       return true;
     } catch (error) {
       console.error('Registration error:', error);
+      toast({
+        title: "Registration Error",
+        description: "An unexpected error occurred during registration",
+        variant: "destructive",
+      });
       return false;
     }
   };
@@ -175,6 +249,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const logout = () => {
     setUser(null);
     localStorage.removeItem('investx_user');
+    toast({
+      title: "Logged Out",
+      description: "You have been logged out successfully",
+    });
   };
 
   const updateUser = (updates: Partial<User>) => {

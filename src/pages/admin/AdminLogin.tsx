@@ -6,24 +6,24 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Shield, TrendingUp } from 'lucide-react';
+import { Shield } from 'lucide-react';
 
 const AdminLogin = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { adminLogin, isAdminAuthenticated } = useAdminAuth();
+  const { adminLogin, isAdminAuthenticated, isLoading: authLoading } = useAdminAuth();
   const navigate = useNavigate();
 
   // Redirect if already logged in
   useEffect(() => {
-    if (isAdminAuthenticated) {
+    if (!authLoading && isAdminAuthenticated) {
       navigate('/admin/dashboard', { replace: true });
     }
-  }, [isAdminAuthenticated, navigate]);
+  }, [isAdminAuthenticated, navigate, authLoading]);
 
-  // Don't render login form if admin is already authenticated
-  if (isAdminAuthenticated) {
+  // Show loading while checking auth status
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-red-600"></div>
@@ -31,17 +31,33 @@ const AdminLogin = () => {
     );
   }
 
+  // Don't render login form if admin is already authenticated
+  if (isAdminAuthenticated) {
+    return null;
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-
-    const success = adminLogin(username, password);
     
-    if (success) {
-      navigate('/admin/dashboard', { replace: true });
+    if (!username.trim() || !password.trim()) {
+      return;
     }
     
-    setIsLoading(false);
+    setIsLoading(true);
+
+    try {
+      console.log('Starting admin login process...');
+      const success = await adminLogin(username.trim(), password);
+      
+      if (success) {
+        console.log('Admin login successful, navigating to dashboard');
+        navigate('/admin/dashboard', { replace: true });
+      }
+    } catch (error) {
+      console.error('Admin login submission error:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -67,6 +83,7 @@ const AdminLogin = () => {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
+                disabled={isLoading}
               />
             </div>
             <div className="space-y-2">
@@ -78,9 +95,14 @@ const AdminLogin = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                disabled={isLoading}
               />
             </div>
-            <Button type="submit" className="w-full bg-red-600 hover:bg-red-700" disabled={isLoading}>
+            <Button 
+              type="submit" 
+              className="w-full bg-red-600 hover:bg-red-700" 
+              disabled={isLoading || !username.trim() || !password.trim()}
+            >
               {isLoading ? 'Signing In...' : 'Admin Sign In'}
             </Button>
           </form>
@@ -92,6 +114,14 @@ const AdminLogin = () => {
             <Link to="/" className="text-sm text-gray-500 hover:text-gray-700 mt-2 inline-block">
               ← Back to Home
             </Link>
+          </div>
+          
+          <div className="mt-4 p-3 bg-gray-100 rounded-md">
+            <p className="text-xs text-gray-600">
+              <strong>Admin Login:</strong><br/>
+              Username: admin<br/>
+              Password: InvestX2024!
+            </p>
           </div>
         </CardContent>
       </Card>
