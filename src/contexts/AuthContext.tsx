@@ -145,13 +145,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       // If user was referred, increment referrer's count
       if (userData.referralCode) {
-        const { error: updateError } = await supabase
+        // First get the current referral count
+        const { data: referrer, error: fetchError } = await supabase
           .from('users')
-          .update({ referral_count: supabase.raw('referral_count + 1') })
-          .eq('referral_code', userData.referralCode);
+          .select('referral_count')
+          .eq('referral_code', userData.referralCode)
+          .single();
 
-        if (updateError) {
-          console.error('Error updating referrer count:', updateError);
+        if (!fetchError && referrer) {
+          // Update with incremented count
+          const { error: updateError } = await supabase
+            .from('users')
+            .update({ referral_count: (referrer.referral_count || 0) + 1 })
+            .eq('referral_code', userData.referralCode);
+
+          if (updateError) {
+            console.error('Error updating referrer count:', updateError);
+          }
         }
       }
 
