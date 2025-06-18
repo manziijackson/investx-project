@@ -6,12 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp, AlertCircle } from 'lucide-react';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const { login, user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -39,10 +40,36 @@ const Login = () => {
     return null;
   }
 
+  const validateForm = (): boolean => {
+    const errors: string[] = [];
+    
+    if (!email.trim()) {
+      errors.push('Email is required');
+    } else if (!/\S+@\S+\.\S+/.test(email)) {
+      errors.push('Please enter a valid email address');
+    }
+    
+    if (!password.trim()) {
+      errors.push('Password is required');
+    } else if (password.length < 3) {
+      errors.push('Password must be at least 3 characters long');
+    }
+    
+    setValidationErrors(errors);
+    return errors.length === 0;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!email.trim() || !password.trim()) {
+    console.log('Login form submitted');
+    console.log('Form data:', { email: email.trim(), passwordLength: password.length });
+    
+    // Clear previous validation errors
+    setValidationErrors([]);
+    
+    if (!validateForm()) {
+      console.log('Form validation failed');
       return;
     }
     
@@ -55,6 +82,8 @@ const Login = () => {
       if (success) {
         console.log('Login successful, navigating to:', from);
         navigate(from, { replace: true });
+      } else {
+        console.log('Login failed');
       }
     } catch (error) {
       console.error('Login submission error:', error);
@@ -75,6 +104,20 @@ const Login = () => {
           <CardDescription>Sign in to your investment account</CardDescription>
         </CardHeader>
         <CardContent>
+          {validationErrors.length > 0 && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+              <div className="flex items-center mb-2">
+                <AlertCircle className="h-4 w-4 text-red-600 mr-2" />
+                <span className="text-sm font-medium text-red-800">Please fix the following errors:</span>
+              </div>
+              <ul className="text-sm text-red-700 space-y-1">
+                {validationErrors.map((error, index) => (
+                  <li key={index}>• {error}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email Address</Label>
@@ -83,9 +126,13 @@ const Login = () => {
                 type="email"
                 placeholder="Enter your email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (validationErrors.length > 0) setValidationErrors([]);
+                }}
                 required
                 disabled={isLoading}
+                className={validationErrors.some(e => e.includes('Email')) ? 'border-red-300' : ''}
               />
             </div>
             <div className="space-y-2">
@@ -95,12 +142,16 @@ const Login = () => {
                 type="password"
                 placeholder="Enter your password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (validationErrors.length > 0) setValidationErrors([]);
+                }}
                 required
                 disabled={isLoading}
+                className={validationErrors.some(e => e.includes('Password')) ? 'border-red-300' : ''}
               />
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading || !email.trim() || !password.trim()}>
+            <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? 'Signing In...' : 'Sign In'}
             </Button>
           </form>
@@ -118,6 +169,13 @@ const Login = () => {
             <Link to="/" className="text-sm text-gray-500 hover:text-gray-700">
               ← Back to Home
             </Link>
+          </div>
+          
+          {/* Debug info for development */}
+          <div className="mt-4 p-3 bg-gray-100 rounded-md text-xs text-gray-600">
+            <p><strong>Debug Info:</strong></p>
+            <p>Check browser console for detailed login logs</p>
+            <p>Form validation: {validationErrors.length === 0 ? 'Passed' : 'Failed'}</p>
           </div>
         </CardContent>
       </Card>

@@ -62,6 +62,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (savedUser) {
       try {
         const userData = JSON.parse(savedUser);
+        console.log('Restored user from localStorage:', userData.email);
         setUser(userData);
       } catch (error) {
         console.error('Error parsing saved user data:', error);
@@ -73,25 +74,61 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      console.log('Attempting login for:', email);
+      console.log('=== LOGIN ATTEMPT START ===');
+      console.log('Email:', email);
+      console.log('Password length:', password.length);
       
-      const { data, error } = await supabase
+      // Test database connection first
+      console.log('Testing database connection...');
+      const { data: testData, error: testError } = await supabase
         .from('users')
-        .select('*')
-        .eq('email', email)
-        .single();
-
-      if (error) {
-        console.error('Database error during login:', error);
+        .select('count')
+        .limit(1);
+      
+      if (testError) {
+        console.error('Database connection test failed:', testError);
         toast({
-          title: "Login Failed",
-          description: "User not found or database error",
+          title: "Database Connection Error",
+          description: "Unable to connect to database. Please try again later.",
           variant: "destructive",
         });
         return false;
       }
+      
+      console.log('Database connection successful');
+      
+      // Query for user
+      console.log('Querying for user...');
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', email.toLowerCase().trim())
+        .single();
+
+      console.log('Query result:', { data: !!data, error: error?.message });
+
+      if (error) {
+        console.error('Database query error:', error);
+        
+        if (error.code === 'PGRST116') {
+          console.log('No user found with this email');
+          toast({
+            title: "Login Failed",
+            description: "No account found with this email address",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Login Failed",
+            description: "Database error: " + error.message,
+            variant: "destructive",
+          });
+        }
+        return false;
+      }
 
       if (!data) {
+        console.log('No data returned from query');
         toast({
           title: "Login Failed",
           description: "No user found with this email",
@@ -100,17 +137,35 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return false;
       }
 
-      console.log('User found, checking password...');
-      const isValidPassword = await bcrypt.compare(password, data.password_hash);
+      console.log('User found:', data.email);
+      console.log('Checking password...');
       
-      if (!isValidPassword) {
+      // Check password
+      try {
+        const isValidPassword = await bcrypt.compare(password, data.password_hash);
+        console.log('Password validation result:', isValidPassword);
+        
+        if (!isValidPassword) {
+          console.log('Password validation failed');
+          toast({
+            title: "Login Failed",
+            description: "Incorrect password",
+            variant: "destructive",
+          });
+          return false;
+        }
+      } catch (bcryptError) {
+        console.error('Bcrypt error:', bcryptError);
         toast({
           title: "Login Failed",
-          description: "Invalid password",
+          description: "Password verification error",
           variant: "destructive",
         });
         return false;
       }
+
+      console.log('Password validation successful');
+      console.log('Creating user object...');
 
       const userData: User = {
         id: data.id,
@@ -128,21 +183,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         createdAt: data.created_at,
       };
 
+      console.log('Setting user state and localStorage...');
       setUser(userData);
       localStorage.setItem('investx_user', JSON.stringify(userData));
       
       toast({
         title: "Login Successful",
-        description: "Welcome back!",
+        description: `Welcome back, ${userData.name}!`,
       });
       
-      console.log('Login successful for user:', userData.name);
+      console.log('=== LOGIN SUCCESSFUL ===');
       return true;
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('=== LOGIN ERROR ===', error);
       toast({
         title: "Login Error",
-        description: "An unexpected error occurred during login",
+        description: "An unexpected error occurred: " + (error as Error).message,
         variant: "destructive",
       });
       return false;
@@ -151,16 +207,29 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const register = async (userData: RegisterData): Promise<boolean> => {
     try {
-      console.log('Attempting registration for:', userData.email);
+      console.log('=== REGISTRATION ATTEMPT START ===');
+      console.log('Email:', userData.email);
       
       // Check if user already exists
-      const { data: existingUser } = await supabase
+      console.log('Checking for existing user...');
+      const { data: existingUser, error: checkError } = await supabase
         .from('users')
         .select('email')
-        .eq('email', userData.email)
-        .single();
+        .eq('email', userData.email.toLowerCase().trim())
+        .maybeSingle();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error('Error checking existing user:', checkError);
+        toast({
+          title: "Registration Failed",
+          description: "Database error: " + checkError.message,
+          variant: "destructive",
+        });
+        return false;
+      }
 
       if (existingUser) {
+        console.log('User already exists');
         toast({
           title: "Registration Failed",
           description: "An account with this email already exists",
@@ -169,12 +238,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return false;
       }
 
+      console.log('Hashing password...');
       const hashedPassword = await bcrypt.hash(userData.password, 10);
       const referralCode = generateReferralCode();
 
       const insertData = {
         name: userData.name,
-        email: userData.email,
+        email: userData.email.toLowerCase().trim(),
         phone: userData.phone,
         password_hash: hashedPassword,
         referral_code: referralCode,
@@ -198,7 +268,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         console.error('Registration error:', error);
         toast({
           title: "Registration Failed",
-          description: error.message || "Failed to create account",
+          description: "Failed to create account: " + error.message,
           variant: "destructive",
         });
         return false;
@@ -212,7 +282,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           .from('users')
           .select('referral_count')
           .eq('referral_code', userData.referralCode)
-          .single();
+          .maybeSingle();
 
         if (!fetchError && referrer) {
           const { error: updateError } = await supabase
@@ -233,13 +303,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         description: "Your account has been created. Please proceed with payment to activate your account.",
       });
       
-      console.log('Registration successful for:', userData.email);
+      console.log('=== REGISTRATION SUCCESSFUL ===');
       return true;
     } catch (error) {
-      console.error('Registration error:', error);
+      console.error('=== REGISTRATION ERROR ===', error);
       toast({
         title: "Registration Error",
-        description: "An unexpected error occurred during registration",
+        description: "An unexpected error occurred: " + (error as Error).message,
         variant: "destructive",
       });
       return false;
@@ -247,6 +317,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const logout = () => {
+    console.log('Logging out user');
     setUser(null);
     localStorage.removeItem('investx_user');
     toast({
