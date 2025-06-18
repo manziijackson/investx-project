@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
-import { Wallet, Clock, CheckCircle, AlertCircle, Calendar } from 'lucide-react';
+import { Wallet, Clock, CheckCircle, AlertCircle, Calendar, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 const Withdraw = () => {
@@ -73,7 +73,7 @@ const Withdraw = () => {
       return;
     }
 
-    // Check minimum withdrawal amount (changed to 3000)
+    // Check minimum withdrawal amount (3000)
     if (amount < 3000) {
       toast({
         title: "Minimum Withdrawal",
@@ -88,6 +88,17 @@ const Withdraw = () => {
       toast({
         title: "Insufficient Balance",
         description: "You don't have enough balance for this withdrawal",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check referrals requirement (minimum 2 referrals)
+    const minReferrals = user.referralsRequiredForWithdrawal || 2;
+    if (user.referralCount < minReferrals) {
+      toast({
+        title: "Referrals Required",
+        description: `You need at least ${minReferrals} referrals to withdraw. You currently have ${user.referralCount} referrals.`,
         variant: "destructive",
       });
       return;
@@ -122,9 +133,26 @@ const Withdraw = () => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
 
-      // Deduct the amount from user's balance immediately
+      // Update user balance in Supabase
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ 
+          balance: user.balance - amount,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
+
+      if (updateError) {
+        console.error('Balance update error:', updateError);
+        throw updateError;
+      }
+
+      // Update local user state
       updateUser({
         balance: user.balance - amount
       });
@@ -146,7 +174,8 @@ const Withdraw = () => {
     }
   };
 
-  const canWithdraw = user?.balance && user.balance >= 3000 && !isWeekend;
+  const hasEnoughReferrals = user?.referralCount >= (user?.referralsRequiredForWithdrawal || 2);
+  const canWithdraw = user?.balance && user.balance >= 3000 && !isWeekend && hasEnoughReferrals;
   const withdrawalFee = withdrawAmount ? parseFloat(withdrawAmount) * 0.1 : 0;
   const netWithdrawal = withdrawAmount ? parseFloat(withdrawAmount) - withdrawalFee : 0;
 
@@ -159,7 +188,7 @@ const Withdraw = () => {
         </div>
 
         {/* Withdrawal Info */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Available Balance</CardTitle>
@@ -170,6 +199,19 @@ const Withdraw = () => {
                 {(user?.balance || 0).toLocaleString()} RWF
               </div>
               <p className="text-xs text-muted-foreground">Ready for withdrawal</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Your Referrals</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-600">
+                {user?.referralCount || 0}/{user?.referralsRequiredForWithdrawal || 2}
+              </div>
+              <p className="text-xs text-muted-foreground">Required for withdrawal</p>
             </CardContent>
           </Card>
 
@@ -186,7 +228,7 @@ const Withdraw = () => {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Withdrawal Status</CardTitle>
+              <CardTitle className="text-sm font-medium">Status</CardTitle>
               <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -197,6 +239,24 @@ const Withdraw = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Referrals Requirement Notice */}
+        {!hasEnoughReferrals && (
+          <Card className="border-orange-200 bg-orange-50">
+            <CardContent className="p-6">
+              <div className="flex items-center space-x-3">
+                <Users className="h-6 w-6 text-orange-600" />
+                <div>
+                  <h3 className="font-semibold text-orange-800">Referrals Required</h3>
+                  <p className="text-orange-700">
+                    You need {(user?.referralsRequiredForWithdrawal || 2) - (user?.referralCount || 0)} more referrals to unlock withdrawals. 
+                    Share your referral code to invite friends!
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Weekend Notice */}
         {isWeekend && (
@@ -257,13 +317,15 @@ const Withdraw = () => {
               className="w-full"
             >
               {isWeekend ? 'Withdrawals Closed (Weekend)' : 
+               !hasEnoughReferrals ? `Need ${(user?.referralsRequiredForWithdrawal || 2) - (user?.referralCount || 0)} More Referrals` :
                !user?.balance || user.balance < 3000 ? 'Insufficient Balance' :
                'Submit Withdrawal Request'}
             </Button>
 
             <div className="bg-blue-50 p-4 rounded-lg">
-              <h3 className="font-semibold text-blue-800 mb-2">Withdrawal Information</h3>
+              <h3 className="font-semibold text-blue-800 mb-2">Withdrawal Requirements</h3>
               <ul className="text-sm text-blue-700 space-y-1">
+                <li>• You must have at least {user?.referralsRequiredForWithdrawal || 2} referrals</li>
                 <li>• Withdrawals require admin approval</li>
                 <li>• Withdrawals are processed Monday to Friday</li>
                 <li>• A 10% processing fee applies to all withdrawals</li>

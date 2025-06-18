@@ -182,6 +182,7 @@ export type Database = {
           phone: string
           referral_code: string
           referral_count: number | null
+          referrals_required_for_withdrawal: number | null
           referred_by: string | null
           total_earned: number | null
           total_invested: number | null
@@ -198,6 +199,7 @@ export type Database = {
           phone: string
           referral_code: string
           referral_count?: number | null
+          referrals_required_for_withdrawal?: number | null
           referred_by?: string | null
           total_earned?: number | null
           total_invested?: number | null
@@ -214,6 +216,7 @@ export type Database = {
           phone?: string
           referral_code?: string
           referral_count?: number | null
+          referrals_required_for_withdrawal?: number | null
           referred_by?: string | null
           total_earned?: number | null
           total_invested?: number | null

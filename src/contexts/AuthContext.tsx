@@ -1,13 +1,12 @@
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { toast } from '@/hooks/use-toast';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import bcrypt from 'bcryptjs';
 
 interface User {
   id: string;
-  name: string;
   email: string;
+  name: string;
   phone: string;
   balance: number;
   totalInvested: number;
@@ -15,6 +14,7 @@ interface User {
   referralCode: string;
   referredBy?: string;
   referralCount: number;
+  referralsRequiredForWithdrawal: number;
   isActive: boolean;
   createdAt: string;
 }
@@ -22,11 +22,18 @@ interface User {
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<boolean>;
-  register: (userData: any) => Promise<boolean>;
+  register: (userData: RegisterData) => Promise<boolean>;
   logout: () => void;
-  updateUser: (userData: Partial<User>) => void;
-  refreshUser: () => void;
+  updateUser: (updates: Partial<User>) => void;
   isLoading: boolean;
+}
+
+interface RegisterData {
+  name: string;
+  email: string;
+  phone: string;
+  password: string;
+  referralCode?: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -39,97 +46,28 @@ export const useAuth = () => {
   return context;
 };
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Function to refresh user data from Supabase
-  const refreshUser = async () => {
-    if (user) {
-      try {
-        const { data, error } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-
-        if (error) throw error;
-
-        if (data) {
-          const updatedUser: User = {
-            id: data.id,
-            name: data.name,
-            email: data.email,
-            phone: data.phone,
-            balance: parseFloat(data.balance.toString()),
-            totalInvested: parseFloat(data.total_invested.toString()),
-            totalEarned: parseFloat(data.total_earned.toString()),
-            referralCode: data.referral_code,
-            referredBy: data.referred_by,
-            referralCount: data.referral_count,
-            isActive: data.is_active,
-            createdAt: data.created_at,
-          };
-          setUser(updatedUser);
-          localStorage.setItem('investx_user', JSON.stringify(updatedUser));
-        }
-      } catch (error) {
-        console.error('Error refreshing user data:', error);
-      }
-    }
+  // Generate referral code
+  const generateReferralCode = (): string => {
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
   };
 
   useEffect(() => {
     // Check for existing session
     const savedUser = localStorage.getItem('investx_user');
     if (savedUser) {
-      setUser(JSON.parse(savedUser));
+      try {
+        const userData = JSON.parse(savedUser);
+        setUser(userData);
+      } catch (error) {
+        console.error('Error parsing saved user data:', error);
+        localStorage.removeItem('investx_user');
+      }
     }
     setIsLoading(false);
-
-    // Set up real-time subscription for user balance updates
-    let subscription: any = null;
-    
-    if (savedUser) {
-      const userData = JSON.parse(savedUser);
-      subscription = supabase
-        .channel('user-balance-changes')
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'users',
-            filter: `id=eq.${userData.id}`
-          },
-          (payload) => {
-            const updatedData = payload.new;
-            const updatedUser: User = {
-              id: updatedData.id,
-              name: updatedData.name,
-              email: updatedData.email,
-              phone: updatedData.phone,
-              balance: parseFloat(updatedData.balance.toString()),
-              totalInvested: parseFloat(updatedData.total_invested.toString()),
-              totalEarned: parseFloat(updatedData.total_earned.toString()),
-              referralCode: updatedData.referral_code,
-              referredBy: updatedData.referred_by,
-              referralCount: updatedData.referral_count,
-              isActive: updatedData.is_active,
-              createdAt: updatedData.created_at,
-            };
-            setUser(updatedUser);
-            localStorage.setItem('investx_user', JSON.stringify(updatedUser));
-          }
-        )
-        .subscribe();
-    }
-
-    return () => {
-      if (subscription) {
-        supabase.removeChannel(subscription);
-      }
-    };
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
@@ -141,138 +79,85 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
 
       if (error || !data) {
-        toast({
-          title: "Login Failed",
-          description: "Invalid email or password.",
-          variant: "destructive",
-        });
         return false;
       }
 
-      // Verify password
-      const isPasswordValid = await bcrypt.compare(password, data.password_hash);
-      if (!isPasswordValid) {
-        toast({
-          title: "Login Failed",
-          description: "Invalid email or password.",
-          variant: "destructive",
-        });
+      const isValidPassword = await bcrypt.compare(password, data.password_hash);
+      if (!isValidPassword) {
         return false;
       }
 
-      // Check if account is activated
-      if (!data.is_active) {
-        toast({
-          title: "Account Not Activated",
-          description: "Your account is pending admin approval. Please wait for activation or contact support.",
-          variant: "destructive",
-        });
-        return false;
-      }
-
-      const userSession: User = {
+      const userData: User = {
         id: data.id,
-        name: data.name,
         email: data.email,
+        name: data.name,
         phone: data.phone,
-        balance: parseFloat(data.balance.toString()),
-        totalInvested: parseFloat(data.total_invested.toString()),
-        totalEarned: parseFloat(data.total_earned.toString()),
+        balance: parseFloat(data.balance?.toString() || '0'),
+        totalInvested: parseFloat(data.total_invested?.toString() || '0'),
+        totalEarned: parseFloat(data.total_earned?.toString() || '0'),
         referralCode: data.referral_code,
         referredBy: data.referred_by,
-        referralCount: data.referral_count,
-        isActive: data.is_active,
+        referralCount: data.referral_count || 0,
+        referralsRequiredForWithdrawal: data.referrals_required_for_withdrawal || 2,
+        isActive: data.is_active || false,
         createdAt: data.created_at,
       };
 
-      setUser(userSession);
-      localStorage.setItem('investx_user', JSON.stringify(userSession));
-      
-      toast({
-        title: "Login Successful",
-        description: "Welcome back to InvestX!",
-      });
+      setUser(userData);
+      localStorage.setItem('investx_user', JSON.stringify(userData));
       return true;
     } catch (error) {
       console.error('Login error:', error);
-      toast({
-        title: "Login Error",
-        description: "An error occurred during login.",
-        variant: "destructive",
-      });
       return false;
     }
   };
 
-  const register = async (userData: any): Promise<boolean> => {
+  const register = async (userData: RegisterData): Promise<boolean> => {
     try {
-      // Check if user already exists
-      const { data: existingUser } = await supabase
-        .from('users')
-        .select('email')
-        .or(`email.eq.${userData.email},phone.eq.${userData.phone}`)
-        .single();
+      const hashedPassword = await bcrypt.hash(userData.password, 10);
+      const referralCode = generateReferralCode();
 
-      if (existingUser) {
-        toast({
-          title: "Registration Failed",
-          description: "User with this email or phone already exists.",
-          variant: "destructive",
-        });
-        return false;
-      }
-
-      // Generate referral code
-      const referralCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-      
-      // Hash password
-      const passwordHash = await bcrypt.hash(userData.password, 10);
+      const insertData = {
+        name: userData.name,
+        email: userData.email,
+        phone: userData.phone,
+        password_hash: hashedPassword,
+        referral_code: referralCode,
+        referred_by: userData.referralCode || null,
+        balance: 0,
+        total_invested: 0,
+        total_earned: 0,
+        referral_count: 0,
+        referrals_required_for_withdrawal: 2,
+        is_active: false,
+      };
 
       const { data, error } = await supabase
         .from('users')
-        .insert({
-          name: userData.name,
-          email: userData.email,
-          phone: userData.phone,
-          password_hash: passwordHash,
-          referral_code: referralCode,
-          referred_by: userData.referredBy || null,
-        })
+        .insert(insertData)
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Registration error:', error);
+        return false;
+      }
 
-      // Update referrer's count if applicable
-      if (userData.referredBy) {
-        // First get current referral count
-        const { data: referrer } = await supabase
+      // If user was referred, increment referrer's count
+      if (userData.referralCode) {
+        const { error: updateError } = await supabase
           .from('users')
-          .select('referral_count')
-          .eq('referral_code', userData.referredBy)
-          .single();
+          .update({ referral_count: supabase.raw('referral_count + 1') })
+          .eq('referral_code', userData.referralCode);
 
-        if (referrer) {
-          await supabase
-            .from('users')
-            .update({ referral_count: referrer.referral_count + 1 })
-            .eq('referral_code', userData.referredBy);
+        if (updateError) {
+          console.error('Error updating referrer count:', updateError);
         }
       }
 
-      toast({
-        title: "Registration Successful",
-        description: "Welcome to InvestX! Please make your initial payment to activate your account.",
-      });
-      
       return true;
     } catch (error) {
       console.error('Registration error:', error);
-      toast({
-        title: "Registration Error",
-        description: "An error occurred during registration.",
-        variant: "destructive",
-      });
       return false;
     }
   };
@@ -280,48 +165,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     setUser(null);
     localStorage.removeItem('investx_user');
-    toast({
-      title: "Logged Out",
-      description: "You have been successfully logged out.",
-    });
   };
 
-  const updateUser = async (userData: Partial<User>) => {
+  const updateUser = (updates: Partial<User>) => {
     if (user) {
-      try {
-        const updateData: any = {};
-        if (userData.balance !== undefined) updateData.balance = userData.balance;
-        if (userData.totalInvested !== undefined) updateData.total_invested = userData.totalInvested;
-        if (userData.totalEarned !== undefined) updateData.total_earned = userData.totalEarned;
-        if (userData.isActive !== undefined) updateData.is_active = userData.isActive;
-
-        const { error } = await supabase
-          .from('users')
-          .update(updateData)
-          .eq('id', user.id);
-
-        if (error) throw error;
-
-        const updatedUser = { ...user, ...userData };
-        setUser(updatedUser);
-        localStorage.setItem('investx_user', JSON.stringify(updatedUser));
-      } catch (error) {
-        console.error('Error updating user:', error);
-      }
+      const updatedUser = { ...user, ...updates };
+      setUser(updatedUser);
+      localStorage.setItem('investx_user', JSON.stringify(updatedUser));
     }
   };
 
-  return (
-    <AuthContext.Provider value={{
-      user,
-      login,
-      register,
-      logout,
-      updateUser,
-      refreshUser,
-      isLoading,
-    }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  const value: AuthContextType = {
+    user,
+    login,
+    register,
+    logout,
+    updateUser,
+    isLoading,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
