@@ -177,6 +177,7 @@ export type Database = {
           email: string
           id: string
           is_active: boolean | null
+          is_admin: boolean | null
           name: string
           password_hash: string
           phone: string
@@ -194,6 +195,7 @@ export type Database = {
           email: string
           id?: string
           is_active?: boolean | null
+          is_admin?: boolean | null
           name: string
           password_hash: string
           phone: string
@@ -211,6 +213,7 @@ export type Database = {
           email?: string
           id?: string
           is_active?: boolean | null
+          is_admin?: boolean | null
           name?: string
           password_hash?: string
           phone?: string

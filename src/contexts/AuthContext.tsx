@@ -17,6 +17,7 @@ interface User {
   referralCount: number;
   referralsRequiredForWithdrawal: number;
   isActive: boolean;
+  isAdmin: boolean;
   createdAt: string;
 }
 
@@ -78,6 +79,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.log('Email:', email);
       console.log('Password length:', password.length);
       
+      // Validate input
+      if (!email || !password) {
+        toast({
+          title: "Login Failed",
+          description: "Please enter both email and password",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        toast({
+          title: "Login Failed",
+          description: "Please enter a valid email address",
+          variant: "destructive",
+        });
+        return false;
+      }
+      
       // Test database connection first
       console.log('Testing database connection...');
       const { data: testData, error: testError } = await supabase
@@ -88,8 +110,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (testError) {
         console.error('Database connection test failed:', testError);
         toast({
-          title: "Database Connection Error",
-          description: "Unable to connect to database. Please try again later.",
+          title: "Connection Error",
+          description: "Unable to connect to server. Please check your internet connection and try again.",
           variant: "destructive",
         });
         return false;
@@ -114,13 +136,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           console.log('No user found with this email');
           toast({
             title: "Login Failed",
-            description: "No account found with this email address",
+            description: "No account found with this email address. Please check your email or register for a new account.",
             variant: "destructive",
           });
         } else {
           toast({
-            title: "Login Failed",
-            description: "Database error: " + error.message,
+            title: "Login Error",
+            description: "An error occurred while trying to log in. Please try again later.",
             variant: "destructive",
           });
         }
@@ -131,7 +153,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         console.log('No data returned from query');
         toast({
           title: "Login Failed",
-          description: "No user found with this email",
+          description: "Account not found. Please check your email address.",
           variant: "destructive",
         });
         return false;
@@ -149,7 +171,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           console.log('Password validation failed');
           toast({
             title: "Login Failed",
-            description: "Incorrect password",
+            description: "Incorrect password. Please check your password and try again.",
             variant: "destructive",
           });
           return false;
@@ -157,8 +179,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       } catch (bcryptError) {
         console.error('Bcrypt error:', bcryptError);
         toast({
-          title: "Login Failed",
-          description: "Password verification error",
+          title: "Login Error",
+          description: "Error verifying password. Please try again.",
           variant: "destructive",
         });
         return false;
@@ -180,6 +202,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         referralCount: data.referral_count || 0,
         referralsRequiredForWithdrawal: data.referrals_required_for_withdrawal || 2,
         isActive: data.is_active || false,
+        isAdmin: data.is_admin || false,
         createdAt: data.created_at,
       };
 
@@ -198,7 +221,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.error('=== LOGIN ERROR ===', error);
       toast({
         title: "Login Error",
-        description: "An unexpected error occurred: " + (error as Error).message,
+        description: "An unexpected error occurred. Please try again later.",
         variant: "destructive",
       });
       return false;
@@ -209,6 +232,47 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       console.log('=== REGISTRATION ATTEMPT START ===');
       console.log('Email:', userData.email);
+      
+      // Validate input
+      if (!userData.name || !userData.email || !userData.phone || !userData.password) {
+        toast({
+          title: "Registration Failed",
+          description: "Please fill in all required fields",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(userData.email)) {
+        toast({
+          title: "Registration Failed",
+          description: "Please enter a valid email address",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      // Validate password length
+      if (userData.password.length < 6) {
+        toast({
+          title: "Registration Failed",
+          description: "Password must be at least 6 characters long",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      // Validate phone number
+      if (userData.phone.length < 10) {
+        toast({
+          title: "Registration Failed",
+          description: "Please enter a valid phone number",
+          variant: "destructive",
+        });
+        return false;
+      }
       
       // Check if user already exists
       console.log('Checking for existing user...');
@@ -222,7 +286,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         console.error('Error checking existing user:', checkError);
         toast({
           title: "Registration Failed",
-          description: "Database error: " + checkError.message,
+          description: "Error checking account. Please try again later.",
           variant: "destructive",
         });
         return false;
@@ -232,7 +296,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         console.log('User already exists');
         toast({
           title: "Registration Failed",
-          description: "An account with this email already exists",
+          description: "An account with this email already exists. Please try logging in instead.",
           variant: "destructive",
         });
         return false;
@@ -243,9 +307,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const referralCode = generateReferralCode();
 
       const insertData = {
-        name: userData.name,
+        name: userData.name.trim(),
         email: userData.email.toLowerCase().trim(),
-        phone: userData.phone,
+        phone: userData.phone.trim(),
         password_hash: hashedPassword,
         referral_code: referralCode,
         referred_by: userData.referralCode || null,
@@ -255,6 +319,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         referral_count: 0,
         referrals_required_for_withdrawal: 2,
         is_active: false,
+        is_admin: false,
       };
 
       console.log('Inserting new user...');
@@ -266,11 +331,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       if (error) {
         console.error('Registration error:', error);
-        toast({
-          title: "Registration Failed",
-          description: "Failed to create account: " + error.message,
-          variant: "destructive",
-        });
+        
+        if (error.code === '23505') {
+          toast({
+            title: "Registration Failed",
+            description: "An account with this email already exists",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Registration Failed",
+            description: "Failed to create account. Please try again later.",
+            variant: "destructive",
+          });
+        }
         return false;
       }
 
@@ -300,7 +374,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       toast({
         title: "Registration Successful",
-        description: "Your account has been created. Please proceed with payment to activate your account.",
+        description: "Your account has been created successfully. Please proceed with payment to activate your account.",
       });
       
       console.log('=== REGISTRATION SUCCESSFUL ===');
@@ -309,7 +383,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.error('=== REGISTRATION ERROR ===', error);
       toast({
         title: "Registration Error",
-        description: "An unexpected error occurred: " + (error as Error).message,
+        description: "An unexpected error occurred during registration. Please try again later.",
         variant: "destructive",
       });
       return false;

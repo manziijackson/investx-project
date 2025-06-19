@@ -3,7 +3,7 @@ import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Shield } from 'lucide-react';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -25,8 +25,33 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Check if user account is activated
-  if (!user.isActive) {
+  // Check if this is an admin route
+  const isAdminRoute = location.pathname.startsWith('/admin');
+  
+  if (isAdminRoute && !user.isAdmin) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-100 flex items-center justify-center p-4">
+        <Card className="max-w-lg mx-auto">
+          <CardContent className="p-8 text-center">
+            <Shield className="h-16 w-16 text-red-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h2>
+            <p className="text-gray-600 mb-6">
+              You don't have permission to access this admin area. Only administrators can access this section.
+            </p>
+            <button
+              onClick={() => window.location.href = '/dashboard'}
+              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Go to Dashboard
+            </button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // For non-admin users accessing regular routes, check if account is activated
+  if (!isAdminRoute && !user.isActive) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
         <Card className="max-w-lg mx-auto">

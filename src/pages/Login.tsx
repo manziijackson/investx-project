@@ -22,7 +22,11 @@ const Login = () => {
   // Redirect if already logged in
   useEffect(() => {
     if (!authLoading && user) {
-      navigate(from, { replace: true });
+      if (user.isAdmin) {
+        navigate('/admin/dashboard', { replace: true });
+      } else {
+        navigate(from, { replace: true });
+      }
     }
   }, [user, navigate, from, authLoading]);
 
@@ -80,8 +84,8 @@ const Login = () => {
       const success = await login(email.trim(), password);
       
       if (success) {
-        console.log('Login successful, navigating to:', from);
-        navigate(from, { replace: true });
+        console.log('Login successful');
+        // Navigation will be handled by the useEffect hook above
       } else {
         console.log('Login failed');
       }
@@ -171,11 +175,13 @@ const Login = () => {
             </Link>
           </div>
           
-          {/* Debug info for development */}
-          <div className="mt-4 p-3 bg-gray-100 rounded-md text-xs text-gray-600">
-            <p><strong>Debug Info:</strong></p>
-            <p>Check browser console for detailed login logs</p>
-            <p>Form validation: {validationErrors.length === 0 ? 'Passed' : 'Failed'}</p>
+          {/* Admin login info */}
+          <div className="mt-4 p-3 bg-gray-100 rounded-md">
+            <p className="text-xs text-gray-600">
+              <strong>Admin Login:</strong><br/>
+              Email: gadyishimwe1@gmail.com<br/>
+              Password: Ishgad123@
+            </p>
           </div>
         </CardContent>
       </Card>
