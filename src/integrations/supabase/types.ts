@@ -285,7 +285,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      manual_process_expired_investments: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          processed_count: number
+          total_amount_returned: number
+          message: string
+        }[]
+      }
+      process_expired_investments: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
